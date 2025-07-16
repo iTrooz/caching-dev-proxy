@@ -1,34 +1,52 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"caching-dev-proxy/internal/config"
 	"caching-dev-proxy/internal/proxy"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	configPath := "configs/config.yaml"
+	configPath := "config.yaml"
 	if len(os.Args) > 1 {
 		configPath = os.Args[1]
 	}
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logrus.Fatalf("Failed to load config: %v", err)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		log.Fatalf("Invalid configuration: %v", err)
+		logrus.Fatalf("Invalid configuration: %v", err)
+	}
+
+	// Setup logrus based on config
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+	
+	switch cfg.Log.Level {
+	case "debug":
+		logrus.SetLevel(logrus.DebugLevel)
+	case "info":
+		logrus.SetLevel(logrus.InfoLevel)
+	case "warn":
+		logrus.SetLevel(logrus.WarnLevel)
+	case "error":
+		logrus.SetLevel(logrus.ErrorLevel)
+	default:
+		logrus.SetLevel(logrus.InfoLevel)
 	}
 
 	server, err := proxy.New(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create proxy server: %v", err)
+		logrus.Fatalf("Failed to create proxy server: %v", err)
 	}
 
 	if err := server.Start(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		logrus.Fatalf("Server failed: %v", err)
 	}
 }

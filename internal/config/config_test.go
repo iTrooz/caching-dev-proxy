@@ -18,6 +18,8 @@ server:
 cache:
   ttl: "30m"
   folder: "./test_cache"
+log:
+  level: "debug"
 rules:
   mode: "whitelist"
   rules:
@@ -51,6 +53,10 @@ rules:
 
 	if len(config.Rules.Rules) != 1 {
 		t.Errorf("Expected 1 rule, got %d", len(config.Rules.Rules))
+	}
+
+	if config.Log.Level != "debug" {
+		t.Errorf("Expected log level 'debug', got '%s'", config.Log.Level)
 	}
 }
 

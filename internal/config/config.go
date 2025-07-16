@@ -13,6 +13,7 @@ type Config struct {
 	Server ServerConfig `yaml:"server"`
 	Cache  CacheConfig  `yaml:"cache"`
 	Rules  RulesConfig  `yaml:"rules"`
+	Log    LogConfig    `yaml:"log"`
 }
 
 // ServerConfig contains server-related configuration
@@ -30,6 +31,11 @@ type CacheConfig struct {
 type RulesConfig struct {
 	Mode  string      `yaml:"mode"` // "whitelist" or "blacklist"
 	Rules []CacheRule `yaml:"rules"`
+}
+
+// LogConfig contains logging configuration
+type LogConfig struct {
+	Level string `yaml:"level"` // "debug", "info", "warn", "error"
 }
 
 // CacheRule defines a caching rule
@@ -54,6 +60,9 @@ func Load(path string) (*Config, error) {
 	// Set defaults
 	if config.Server.Port == 0 {
 		config.Server.Port = 8080
+	}
+	if config.Log.Level == "" {
+		config.Log.Level = "info"
 	}
 
 	return &config, nil
@@ -84,6 +93,13 @@ func (c *Config) Validate() error {
 
 	if c.Rules.Mode != "whitelist" && c.Rules.Mode != "blacklist" {
 		return fmt.Errorf("rules mode must be 'whitelist' or 'blacklist', got: %s", c.Rules.Mode)
+	}
+
+	validLogLevels := map[string]bool{
+		"debug": true, "info": true, "warn": true, "error": true,
+	}
+	if !validLogLevels[c.Log.Level] {
+		return fmt.Errorf("log level must be one of 'debug', 'info', 'warn', 'error', got: %s", c.Log.Level)
 	}
 
 	return nil

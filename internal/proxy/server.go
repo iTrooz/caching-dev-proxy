@@ -3,7 +3,6 @@ package proxy
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"caching-dev-proxy/internal/cache"
 	"caching-dev-proxy/internal/config"
+	"github.com/sirupsen/logrus"
 )
 
 // Server represents the caching proxy server
@@ -43,10 +43,10 @@ func (s *Server) Start() error {
 
 	http.HandleFunc("/", s.handleRequest)
 
-	log.Printf("Starting caching proxy on port %d", s.config.Server.Port)
-	log.Printf("Cache directory: %s", s.config.Cache.Folder)
-	log.Printf("Cache TTL: %s", s.config.Cache.TTL)
-	log.Printf("Rules mode: %s", s.config.Rules.Mode)
+	logrus.Infof("Starting caching proxy on port %d", s.config.Server.Port)
+	logrus.Infof("Cache directory: %s", s.config.Cache.Folder)
+	logrus.Infof("Cache TTL: %s", s.config.Cache.TTL)
+	logrus.Infof("Rules mode: %s", s.config.Rules.Mode)
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", s.config.Server.Port), nil)
 }
@@ -100,11 +100,11 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	// Start bidirectional copying
 	go func() {
 		if _, err := io.Copy(destConn, clientConn); err != nil {
-			log.Printf("Error copying from client to destination: %v", err)
+			logrus.Errorf("Error copying from client to destination: %v", err)
 		}
 	}()
 	if _, err := io.Copy(clientConn, destConn); err != nil {
-		log.Printf("Error copying from destination to client: %v", err)
+		logrus.Errorf("Error copying from destination to client: %v", err)
 	}
 }
 
@@ -169,7 +169,7 @@ func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	log.Printf("Serving from cache: %s", r.URL.String())
+	logrus.Infof("Serving from cache: %s", r.URL.String())
 
 	// Set cache headers
 	w.Header().Set("X-Cache", "HIT")
@@ -177,7 +177,7 @@ func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
 
 	// Write cached response
 	if _, err := w.Write(data); err != nil {
-		log.Printf("Failed to write cached response: %v", err)
+		logrus.Errorf("Failed to write cached response: %v", err)
 	}
 	return true
 }
@@ -228,16 +228,16 @@ func (s *Server) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Cache", "MISS")
 	w.WriteHeader(resp.StatusCode)
 	if _, err := w.Write(body); err != nil {
-		log.Printf("Failed to write response body: %v", err)
+		logrus.Errorf("Failed to write response body: %v", err)
 	}
 
 	// Cache the response if it should be cached and status is OK
 	if s.shouldCache(r) && resp.StatusCode == http.StatusOK {
 		cachePath := s.cacheManager.GetPath(targetURL, r.Method)
 		if err := s.cacheManager.Set(cachePath, body); err != nil {
-			log.Printf("Failed to cache response: %v", err)
+			logrus.Errorf("Failed to cache response: %v", err)
 		}
 	}
 
-	log.Printf("Forwarded request: %s %s -> %d", r.Method, targetURL, resp.StatusCode)
+	logrus.Infof("Forwarded request: %s %s -> %d", r.Method, targetURL, resp.StatusCode)
 }

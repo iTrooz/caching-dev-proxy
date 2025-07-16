@@ -3,12 +3,13 @@ package cache
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Manager handles caching operations
@@ -98,7 +99,7 @@ func (m *Manager) Set(cachePath string, data []byte) error {
 		return err
 	}
 
-	log.Printf("Cached response: %s", cachePath)
+	logrus.Debugf("Cached response: %s", cachePath)
 	return nil
 }
 
