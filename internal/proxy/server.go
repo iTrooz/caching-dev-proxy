@@ -114,9 +114,10 @@ func (s *Server) shouldCache(r *http.Request) bool {
 	// Check rules
 	for _, rule := range s.config.Rules.Rules {
 		if s.matchesRule(targetURL, r.Method, rule) {
-			if s.config.Rules.Mode == "whitelist" {
+			switch s.config.Rules.Mode {
+			case "whitelist":
 				return true
-			} else if s.config.Rules.Mode == "blacklist" {
+			case "blacklist":
 				return false
 			}
 		}
