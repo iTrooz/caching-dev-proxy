@@ -28,8 +28,15 @@ type CacheConfig struct {
 }
 
 // RulesConfig contains caching rules configuration
+type RulesMode string
+
+const (
+	RulesModeWhitelist RulesMode = "whitelist"
+	RulesModeBlacklist RulesMode = "blacklist"
+)
+
 type RulesConfig struct {
-	Mode  string      `yaml:"mode"` // "whitelist" or "blacklist"
+	Mode  RulesMode   `yaml:"mode"` // "whitelist" or "blacklist"
 	Rules []CacheRule `yaml:"rules"`
 }
 

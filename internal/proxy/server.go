@@ -111,23 +111,18 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 func (s *Server) shouldCache(r *http.Request) bool {
 	targetURL := s.getTargetURL(r)
 
-	// Check rules
+	matched := false
 	for _, rule := range s.config.Rules.Rules {
 		if s.matchesRule(targetURL, r.Method, rule) {
-			switch s.config.Rules.Mode {
-			case "whitelist":
-				return true
-			case "blacklist":
-				return false
-			}
+			matched = true
+			break
 		}
 	}
 
-	// Default behavior
 	if s.config.Rules.Mode == "whitelist" {
-		return false // Not in whitelist
+		return matched
 	} else {
-		return true // Not in blacklist
+		return !matched
 	}
 }
 
