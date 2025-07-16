@@ -78,7 +78,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Forward the request and get response
-	resp, err := s.forwardRequest(r)
+	resp, err := s.makeRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
@@ -212,7 +212,7 @@ func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func (s *Server) forwardRequest(r *http.Request) (*ProxyResponse, error) {
+func (s *Server) makeRequest(r *http.Request) (*ProxyResponse, error) {
 	targetURL := getTargetURL(r)
 
 	// Create new request
