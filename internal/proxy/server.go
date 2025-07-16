@@ -10,6 +10,7 @@ import (
 
 	"caching-dev-proxy/internal/cache"
 	"caching-dev-proxy/internal/config"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -109,11 +110,11 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) shouldCache(r *http.Request) bool {
-	targetURL := s.getTargetURL(r)
+	targetURL := getTargetURL(r)
 
 	matched := false
 	for _, rule := range s.config.Rules.Rules {
-		if s.matchesRule(targetURL, r.Method, rule) {
+		if matchesRule(targetURL, r.Method, rule) {
 			matched = true
 			break
 		}
@@ -126,7 +127,7 @@ func (s *Server) shouldCache(r *http.Request) bool {
 	}
 }
 
-func (s *Server) matchesRule(targetURL, method string, rule config.CacheRule) bool {
+func matchesRule(targetURL, method string, rule config.CacheRule) bool {
 	// Check if URL starts with base URI
 	if !strings.HasPrefix(targetURL, rule.BaseURI) {
 		return false
@@ -142,7 +143,7 @@ func (s *Server) matchesRule(targetURL, method string, rule config.CacheRule) bo
 	return false
 }
 
-func (s *Server) getTargetURL(r *http.Request) string {
+func getTargetURL(r *http.Request) string {
 	if r.URL.IsAbs() {
 		return r.URL.String()
 	}
@@ -157,7 +158,7 @@ func (s *Server) getTargetURL(r *http.Request) string {
 }
 
 func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
-	targetURL := s.getTargetURL(r)
+	targetURL := getTargetURL(r)
 	cachePath := s.cacheManager.GetPath(targetURL, r.Method)
 
 	data, found := s.cacheManager.Get(cachePath)
@@ -179,7 +180,7 @@ func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (s *Server) forwardRequest(w http.ResponseWriter, requ *http.Request) {
-	targetURL := s.getTargetURL(requ)
+	targetURL := getTargetURL(requ)
 
 	// Create new request
 	req, err := http.NewRequest(requ.Method, targetURL, requ.Body)

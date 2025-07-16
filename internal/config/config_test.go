@@ -72,6 +72,7 @@ func TestValidate(t *testing.T) {
 				Server: ServerConfig{Port: 8080},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
+				Log:    LogConfig{Level: "info"},
 			},
 			wantErr: false,
 		},

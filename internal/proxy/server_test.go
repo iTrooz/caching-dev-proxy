@@ -141,8 +141,6 @@ func TestShouldCacheBlacklist(t *testing.T) {
 }
 
 func TestMatchesRule(t *testing.T) {
-	server := &Server{}
-
 	rule := config.CacheRule{
 		BaseURI: "https://api.example.com",
 		Methods: []string{"GET", "POST"},
@@ -188,7 +186,7 @@ func TestMatchesRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := server.matchesRule(tt.targetURL, tt.method, rule)
+			got := matchesRule(tt.targetURL, tt.method, rule)
 			if got != tt.want {
 				t.Errorf("matchesRule() = %v, want %v", got, tt.want)
 			}
@@ -197,8 +195,6 @@ func TestMatchesRule(t *testing.T) {
 }
 
 func TestGetTargetURL(t *testing.T) {
-	server := &Server{}
-
 	tests := []struct {
 		name string
 		req  *http.Request
@@ -222,7 +218,7 @@ func TestGetTargetURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := server.getTargetURL(tt.req)
+			got := getTargetURL(tt.req)
 			if got != tt.want {
 				t.Errorf("getTargetURL() = %v, want %v", got, tt.want)
 			}
