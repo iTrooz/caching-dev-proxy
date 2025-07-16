@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+cache:
+  ttl: "1h"  # Cache time-to-live (e.g., "30m", "1h", "24h")
+  folder: "./cache"  # Cache storage directory
+
+# By default, the rules are a blacklist with no rules.
+# Example of a whitelist configuration:
+# rules:
+  # mode: "whitelist"  # "whitelist" or "blacklist"
+  # rules:
+  #   - base_uri: "https://api.github.com"
+  #     methods: ["GET"]
+  #   - base_uri: "https://httpbin.org"
+  #     methods: ["GET", "POST"]
+  #   - base_uri: "http://example.com"
+  #     methods: ["GET"]
