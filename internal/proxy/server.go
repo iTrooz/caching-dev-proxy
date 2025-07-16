@@ -178,18 +178,18 @@ func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func (s *Server) forwardRequest(w http.ResponseWriter, r *http.Request) {
-	targetURL := s.getTargetURL(r)
+func (s *Server) forwardRequest(w http.ResponseWriter, requ *http.Request) {
+	targetURL := s.getTargetURL(requ)
 
 	// Create new request
-	req, err := http.NewRequest(r.Method, targetURL, r.Body)
+	req, err := http.NewRequest(requ.Method, targetURL, requ.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Copy headers
-	for key, values := range r.Header {
+	for key, values := range requ.Header {
 		for _, value := range values {
 			req.Header.Add(key, value)
 		}
@@ -228,12 +228,12 @@ func (s *Server) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Cache the response if it should be cached and status is OK
-	if s.shouldCache(r) && resp.StatusCode == http.StatusOK {
-		cachePath := s.cacheManager.GetPath(targetURL, r.Method)
+	if s.shouldCache(requ) && resp.StatusCode == http.StatusOK {
+		cachePath := s.cacheManager.GetPath(targetURL, requ.Method)
 		if err := s.cacheManager.Set(cachePath, body); err != nil {
 			logrus.Errorf("Failed to cache response: %v", err)
 		}
 	}
 
-	logrus.Infof("Forwarded request: %s %s -> %d", r.Method, targetURL, resp.StatusCode)
+	logrus.Infof("Forwarded request: %s %s -> %d", requ.Method, targetURL, resp.StatusCode)
 }
