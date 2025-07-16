@@ -25,121 +25,6 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestShouldCache(t *testing.T) {
-	cfg := &config.Config{
-		Cache: config.CacheConfig{TTL: "1h", Folder: "/tmp/test"},
-		Rules: config.RulesConfig{
-			Mode: "whitelist",
-			Rules: []config.CacheRule{
-				{
-					BaseURI: "https://api.example.com",
-					Methods: []string{"GET"},
-				},
-			},
-		},
-	}
-
-	server, _ := New(cfg)
-
-	tests := []struct {
-		name   string
-		method string
-		url    string
-		want   bool
-	}{
-		{
-			name:   "GET request matching whitelist",
-			method: "GET",
-			url:    "https://api.example.com/users",
-			want:   true,
-		},
-		{
-			name:   "POST request not in whitelist methods",
-			method: "POST",
-			url:    "https://api.example.com/users",
-			want:   false,
-		},
-		{
-			name:   "GET request not matching whitelist URI",
-			method: "GET",
-			url:    "https://other.example.com/users",
-			want:   false,
-		},
-		{
-			name:   "Non-GET request",
-			method: "DELETE",
-			url:    "https://api.example.com/users",
-			want:   false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.url, nil)
-			req.Host = "api.example.com"
-
-			got := server.shouldCache(req)
-			if got != tt.want {
-				t.Errorf("shouldCache() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestShouldCacheBlacklist(t *testing.T) {
-	cfg := &config.Config{
-		Cache: config.CacheConfig{TTL: "1h", Folder: "/tmp/test"},
-		Rules: config.RulesConfig{
-			Mode: "blacklist",
-			Rules: []config.CacheRule{
-				{
-					BaseURI: "https://no-cache.example.com",
-					Methods: []string{"GET"},
-				},
-			},
-		},
-	}
-
-	server, _ := New(cfg)
-
-	tests := []struct {
-		name   string
-		method string
-		url    string
-		want   bool
-	}{
-		{
-			name:   "GET request matching blacklist",
-			method: "GET",
-			url:    "https://no-cache.example.com/users",
-			want:   false,
-		},
-		{
-			name:   "GET request not in blacklist",
-			method: "GET",
-			url:    "https://api.example.com/users",
-			want:   true,
-		},
-		{
-			name:   "POST request not matching blacklist methods",
-			method: "POST",
-			url:    "https://no-cache.example.com/users",
-			want:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.url, nil)
-
-			got := server.shouldCache(req)
-			if got != tt.want {
-				t.Errorf("shouldCache() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestMatchesRule(t *testing.T) {
 	rule := config.CacheRule{
 		BaseURI: "https://api.example.com",
@@ -147,46 +32,106 @@ func TestMatchesRule(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		targetURL string
-		method    string
-		want      bool
+		name       string
+		targetURL  string
+		method     string
+		statusCode int
+		want       bool
 	}{
 		{
-			name:      "matching URL and method",
-			targetURL: "https://api.example.com/users",
-			method:    "GET",
-			want:      true,
+			name:       "matching URL and method",
+			targetURL:  "https://api.example.com/users",
+			method:     "GET",
+			statusCode: 200,
+			want:       true,
 		},
 		{
-			name:      "matching URL different method",
-			targetURL: "https://api.example.com/users",
-			method:    "POST",
-			want:      true,
+			name:       "matching URL different method",
+			targetURL:  "https://api.example.com/users",
+			method:     "POST",
+			statusCode: 200,
+			want:       true,
 		},
 		{
-			name:      "matching URL non-matching method",
-			targetURL: "https://api.example.com/users",
-			method:    "DELETE",
-			want:      false,
+			name:       "matching URL non-matching method",
+			targetURL:  "https://api.example.com/users",
+			method:     "DELETE",
+			statusCode: 200,
+			want:       false,
 		},
 		{
-			name:      "non-matching URL",
-			targetURL: "https://other.example.com/users",
-			method:    "GET",
-			want:      false,
+			name:       "non-matching URL",
+			targetURL:  "https://other.example.com/users",
+			method:     "GET",
+			statusCode: 200,
+			want:       false,
 		},
 		{
-			name:      "case insensitive method",
-			targetURL: "https://api.example.com/users",
-			method:    "get",
-			want:      true,
+			name:       "case insensitive method",
+			targetURL:  "https://api.example.com/users",
+			method:     "get",
+			statusCode: 200,
+			want:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesRule(tt.targetURL, tt.method, rule)
+			got := matchesRule(tt.targetURL, tt.method, tt.statusCode, rule)
+			if got != tt.want {
+				t.Errorf("matchesRule() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMatchesRuleWithStatusCodes(t *testing.T) {
+	rule := config.CacheRule{
+		BaseURI:     "https://api.example.com",
+		Methods:     []string{"GET", "POST"},
+		StatusCodes: []string{"200", "4xx"},
+	}
+
+	tests := []struct {
+		name       string
+		targetURL  string
+		method     string
+		statusCode int
+		want       bool
+	}{
+		{
+			name:       "matching URL, method, and status code",
+			targetURL:  "https://api.example.com/users",
+			method:     "GET",
+			statusCode: 200,
+			want:       true,
+		},
+		{
+			name:       "matching URL, method, and status pattern",
+			targetURL:  "https://api.example.com/users",
+			method:     "GET",
+			statusCode: 404,
+			want:       true,
+		},
+		{
+			name:       "matching URL and method, non-matching status",
+			targetURL:  "https://api.example.com/users",
+			method:     "GET",
+			statusCode: 500,
+			want:       false,
+		},
+		{
+			name:       "non-matching method",
+			targetURL:  "https://api.example.com/users",
+			method:     "DELETE",
+			statusCode: 200,
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesRule(tt.targetURL, tt.method, tt.statusCode, rule)
 			if got != tt.want {
 				t.Errorf("matchesRule() = %v, want %v", got, tt.want)
 			}

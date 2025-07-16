@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -47,8 +49,9 @@ type LogConfig struct {
 
 // CacheRule defines a caching rule
 type CacheRule struct {
-	BaseURI string   `yaml:"base_uri"`
-	Methods []string `yaml:"methods"`
+	BaseURI     string   `yaml:"base_uri"`
+	Methods     []string `yaml:"methods"`
+	StatusCodes []string `yaml:"status_codes,omitempty"` // e.g., ["200", "404", "4xx", "5xx"]
 }
 
 // Load loads configuration from a YAML file
@@ -110,4 +113,22 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// MatchesStatusCode checks if a status code matches a pattern
+func MatchesStatusCode(statusCode int, pattern string) bool {
+	statusStr := strconv.Itoa(statusCode)
+
+	// Exact match
+	if pattern == statusStr {
+		return true
+	}
+
+	// Pattern matching (e.g., "4xx", "5xx")
+	if strings.HasSuffix(pattern, "xx") && len(pattern) == 3 {
+		prefix := pattern[:1]
+		return strings.HasPrefix(statusStr, prefix)
+	}
+
+	return false
 }
