@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"caching-dev-proxy/internal/cache"
@@ -125,36 +124,6 @@ func (s *Server) shouldCache(r *http.Request) bool {
 	} else {
 		return !matched
 	}
-}
-
-func matchesRule(targetURL, method string, rule config.CacheRule) bool {
-	// Check if URL starts with base URI
-	if !strings.HasPrefix(targetURL, rule.BaseURI) {
-		return false
-	}
-
-	// Check if method matches
-	for _, m := range rule.Methods {
-		if strings.EqualFold(m, method) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func getTargetURL(r *http.Request) string {
-	if r.URL.IsAbs() {
-		return r.URL.String()
-	}
-
-	// Reconstruct URL from Host header
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-
-	return fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL.String())
 }
 
 func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
