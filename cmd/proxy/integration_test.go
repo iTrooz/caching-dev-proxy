@@ -51,9 +51,8 @@ func TestProxyIntegration(t *testing.T) {
 		t.Fatalf("Failed to create proxy server: %v", err)
 	}
 
-	// Create test proxy HTTP server
-	proxyHandler := http.HandlerFunc(proxyServer.HandleRequest)
-	proxyTestServer := httptest.NewServer(proxyHandler)
+	// Create test proxy HTTP server using goproxy
+	proxyTestServer := httptest.NewServer(proxyServer.GetProxy())
 	defer proxyTestServer.Close()
 
 	// Create HTTP client that uses our proxy

@@ -25,10 +25,12 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestMatchesRule(t *testing.T) {
-	rule := config.CacheRule{
-		BaseURI: "https://api.example.com",
-		Methods: []string{"GET", "POST"},
+func TestConfigRuleMatch(t *testing.T) {
+	rule := &ConfigRule{
+		CacheRule: config.CacheRule{
+			BaseURI: "https://api.example.com",
+			Methods: []string{"GET", "POST"},
+		},
 	}
 
 	tests := []struct {
@@ -77,19 +79,21 @@ func TestMatchesRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesRule(tt.targetURL, tt.method, tt.statusCode, rule)
+			got := rule.Match(tt.targetURL, tt.method, tt.statusCode)
 			if got != tt.want {
-				t.Errorf("matchesRule() = %v, want %v", got, tt.want)
+				t.Errorf("ConfigRule.Match() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestMatchesRuleWithStatusCodes(t *testing.T) {
-	rule := config.CacheRule{
-		BaseURI:     "https://api.example.com",
-		Methods:     []string{"GET", "POST"},
-		StatusCodes: []string{"200", "4xx"},
+func TestConfigRuleMatchWithStatusCodes(t *testing.T) {
+	rule := &ConfigRule{
+		CacheRule: config.CacheRule{
+			BaseURI:     "https://api.example.com",
+			Methods:     []string{"GET", "POST"},
+			StatusCodes: []string{"200", "4xx"},
+		},
 	}
 
 	tests := []struct {
@@ -131,9 +135,9 @@ func TestMatchesRuleWithStatusCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesRule(tt.targetURL, tt.method, tt.statusCode, rule)
+			got := rule.Match(tt.targetURL, tt.method, tt.statusCode)
 			if got != tt.want {
-				t.Errorf("matchesRule() = %v, want %v", got, tt.want)
+				t.Errorf("ConfigRule.Match() = %v, want %v", got, tt.want)
 			}
 		})
 	}

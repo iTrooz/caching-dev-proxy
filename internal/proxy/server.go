@@ -46,6 +46,7 @@ type Server struct {
 	config       *config.Config
 	cacheManager *cache.Manager
 	proxy        *goproxy.ProxyHttpServer
+	rules        []Rule
 }
 
 // New creates a new proxy server
@@ -64,10 +65,17 @@ func New(cfg *config.Config) (*Server, error) {
 	// Set up certificate storage for better performance during SSL bumping
 	proxy.CertStore = &simpleCertStore{certs: make(map[string]*tls.Certificate)}
 
+	// Convert config rules to Rule interfaces
+	rules := make([]Rule, len(cfg.Rules.Rules))
+	for i, rule := range cfg.Rules.Rules {
+		rules[i] = &ConfigRule{CacheRule: rule}
+	}
+
 	server := &Server{
 		config:       cfg,
 		cacheManager: cacheManager,
 		proxy:        proxy,
+		rules:        rules,
 	}
 
 	// Load CA certificate if SSL bumping is enabled
@@ -154,8 +162,10 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 				s.cacheResponse(ctx.Req, proxyResp)
 			}
 
-			// Add cache header
-			resp.Header.Set("X-Cache", "MISS")
+			// Add cache header only if not already set (to avoid overwriting cache hits)
+			if resp.Header.Get("X-Cache") == "" {
+				resp.Header.Set("X-Cache", "MISS")
+			}
 
 			logrus.Infof("Forwarded request: %s %s -> %d", ctx.Req.Method, ctx.Req.URL.String(), resp.StatusCode)
 		}
@@ -182,6 +192,11 @@ func (s *Server) Start() error {
 	}
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", s.config.Server.Port), s.proxy)
+}
+
+// GetProxy returns the underlying goproxy instance for testing
+func (s *Server) GetProxy() *goproxy.ProxyHttpServer {
+	return s.proxy
 }
 
 // getCachedResponse returns a cached HTTP response if available
@@ -242,8 +257,8 @@ func (s *Server) shouldBeCached(r *http.Request, resp *ProxyResponse) bool {
 	targetURL := getTargetURL(r)
 
 	matched := false
-	for _, rule := range s.config.Rules.Rules {
-		if matchesRule(targetURL, r.Method, resp.StatusCode, rule) {
+	for _, rule := range s.rules {
+		if rule.Match(targetURL, r.Method, resp.StatusCode) {
 			matched = true
 			break
 		}
