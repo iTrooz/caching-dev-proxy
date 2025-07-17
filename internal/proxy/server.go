@@ -1,15 +1,15 @@
 package proxy
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"time"
 
 	"caching-dev-proxy/internal/cache"
 	"caching-dev-proxy/internal/config"
 
+	"github.com/elazarl/goproxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,6 +24,7 @@ type ProxyResponse struct {
 type Server struct {
 	config       *config.Config
 	cacheManager *cache.Manager
+	proxy        *goproxy.ProxyHttpServer
 }
 
 // New creates a new proxy server
@@ -35,10 +36,85 @@ func New(cfg *config.Config) (*Server, error) {
 
 	cacheManager := cache.New(cfg.Cache.Folder, cacheTTL)
 
-	return &Server{
+	// Create goproxy instance
+	proxy := goproxy.NewProxyHttpServer()
+	proxy.Verbose = cfg.Log.Level == "debug"
+
+	server := &Server{
 		config:       cfg,
 		cacheManager: cacheManager,
-	}, nil
+		proxy:        proxy,
+	}
+
+	// Configure goproxy handlers
+	server.setupProxyHandlers()
+
+	return server, nil
+}
+
+// setupProxyHandlers configures the goproxy handlers
+func (s *Server) setupProxyHandlers() {
+	// Handle CONNECT requests (HTTPS tunneling)
+	if s.config.Server.SSLBumping.Enabled && s.certManager != nil {
+		// Enable SSL bumping for HTTPS traffic
+		s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	}
+	// If SSL bumping is disabled, goproxy will handle CONNECT requests normally by default
+
+	// Handle HTTP requests with caching
+	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
+
+		// Check if we have a cached response
+		if s.isCached(req) {
+			if cachedResp := s.getCachedResponse(req); cachedResp != nil {
+				logrus.Infof("Serving from cache: %s", req.URL.String())
+				return req, cachedResp
+			}
+		}
+
+		// Continue with the request (will be handled by OnResponse)
+		return req, nil
+	})
+
+	// Handle responses for caching
+	s.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
+		if resp == nil || ctx.Req == nil {
+			return resp
+		}
+
+		// Read response body for caching
+		if resp.Body != nil {
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				logrus.Errorf("Failed to read response body: %v", err)
+				return resp
+			}
+			resp.Body.Close()
+
+			// Create new response body
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+			// Create ProxyResponse for caching logic
+			proxyResp := &ProxyResponse{
+				StatusCode: resp.StatusCode,
+				Headers:    resp.Header,
+				Body:       bodyBytes,
+			}
+
+			// Cache the response if it should be cached
+			if s.shouldBeCached(ctx.Req, proxyResp) {
+				s.cacheResponse(ctx.Req, proxyResp)
+			}
+
+			// Add cache header
+			resp.Header.Set("X-Cache", "MISS")
+
+			logrus.Infof("Forwarded request: %s %s -> %d", ctx.Req.Method, ctx.Req.URL.String(), resp.StatusCode)
+		}
+
+		return resp
+	})
 }
 
 // Start starts the proxy server
@@ -48,14 +124,48 @@ func (s *Server) Start() error {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	http.HandleFunc("/", s.handleRequest)
-
 	logrus.Infof("Starting caching proxy on port %d", s.config.Server.Port)
 	logrus.Infof("Cache directory: %s", s.config.Cache.Folder)
 	logrus.Infof("Cache TTL: %s", s.config.Cache.TTL)
 	logrus.Infof("Rules mode: %s", s.config.Rules.Mode)
+	if s.config.Server.SSLBumping.Enabled {
+		logrus.Infof("SSL bumping: enabled")
+	} else {
+		logrus.Infof("SSL bumping: disabled")
+	}
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", s.config.Server.Port), nil)
+	return http.ListenAndServe(fmt.Sprintf(":%d", s.config.Server.Port), s.proxy)
+}
+
+// getCachedResponse returns a cached HTTP response if available
+func (s *Server) getCachedResponse(r *http.Request) *http.Response {
+	targetURL := getTargetURL(r)
+	cachePath := s.cacheManager.GetPath(targetURL, r.Method)
+
+	data, found := s.cacheManager.Get(cachePath)
+	if !found {
+		return nil
+	}
+
+	// Create HTTP response from cached data
+	resp := &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        make(http.Header),
+		Body:          io.NopCloser(bytes.NewReader(data)),
+		ContentLength: int64(len(data)),
+		Request:       r,
+	}
+
+	// Set cache headers
+	resp.Header.Set("X-Cache", "HIT")
+	resp.Header.Set("X-Cache-File", cachePath)
+	resp.Header.Set("Content-Type", "text/html; charset=utf-8") // Default content type
+
+	return resp
 }
 
 // HandleRequest handles HTTP requests (exported for testing)
@@ -64,70 +174,10 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
-	// Handle CONNECT method for HTTPS tunneling
-	if r.Method == http.MethodConnect {
-		s.handleConnect(w, r)
-		return
-	}
-
-	// Check if we have a cached response
-	if s.isCached(r) {
-		if s.serveCached(w, r) {
-			return
-		}
-	}
-
-	// Forward the request and get response
-	resp, err := s.makeRequest(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
-	}
-
-	// Write response to client
-	s.writeResponse(w, resp, false)
-
-	// Cache the response if it should be cached
-	if s.shouldBeCached(r, resp) {
-		s.cacheResponse(r, resp)
-	}
-
-	targetURL := getTargetURL(r)
-	logrus.Infof("Forwarded request: %s %s -> %d", r.Method, targetURL, resp.StatusCode)
-}
-
-func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
-	// For HTTPS, we establish a tunnel
-	destConn, err := net.Dial("tcp", r.Host)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer destConn.Close()
-
-	w.WriteHeader(http.StatusOK)
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
-		return
-	}
-
-	clientConn, _, err := hijacker.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer clientConn.Close()
-
-	// Start bidirectional copying
-	go func() {
-		if _, err := io.Copy(destConn, clientConn); err != nil {
-			logrus.Errorf("Error copying from client to destination: %v", err)
-		}
-	}()
-	if _, err := io.Copy(clientConn, destConn); err != nil {
-		logrus.Errorf("Error copying from destination to client: %v", err)
-	}
+	// This method is kept for backward compatibility but is no longer used
+	// The goproxy handlers now handle all requests
+	logrus.Debugf("Legacy handleRequest called for: %s %s", r.Method, r.URL.String())
+	http.Error(w, "This endpoint should not be called directly", http.StatusInternalServerError)
 }
 
 // isCached checks if we should attempt to serve from cache
@@ -138,28 +188,6 @@ func (s *Server) isCached(r *http.Request) bool {
 	// Check if cached file exists and is not expired
 	_, found := s.cacheManager.Get(cachePath)
 	return found
-}
-
-// writeResponse writes a ProxyResponse to the http.ResponseWriter
-func (s *Server) writeResponse(w http.ResponseWriter, resp *ProxyResponse, cached bool) {
-	// Copy response headers
-	for key, values := range resp.Headers {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-
-	// Set cache header
-	if cached {
-		w.Header().Set("X-Cache", "HIT")
-	} else {
-		w.Header().Set("X-Cache", "MISS")
-	}
-
-	w.WriteHeader(resp.StatusCode)
-	if _, err := w.Write(resp.Body); err != nil {
-		logrus.Errorf("Failed to write response body: %v", err)
-	}
 }
 
 // shouldBeCached determines if a response should be cached based on rules
@@ -188,69 +216,4 @@ func (s *Server) cacheResponse(r *http.Request, resp *ProxyResponse) {
 	if err := s.cacheManager.Set(cachePath, resp.Body); err != nil {
 		logrus.Errorf("Failed to cache response: %v", err)
 	}
-}
-
-func (s *Server) serveCached(w http.ResponseWriter, r *http.Request) bool {
-	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetPath(targetURL, r.Method)
-
-	data, found := s.cacheManager.Get(cachePath)
-	if !found {
-		return false
-	}
-
-	logrus.Infof("Serving from cache: %s", r.URL.String())
-
-	// Set cache headers
-	w.Header().Set("X-Cache", "HIT")
-	w.Header().Set("X-Cache-File", cachePath)
-
-	// Write cached response
-	if _, err := w.Write(data); err != nil {
-		logrus.Errorf("Failed to write cached response: %v", err)
-	}
-	return true
-}
-
-func (s *Server) makeRequest(r *http.Request) (*ProxyResponse, error) {
-	targetURL := getTargetURL(r)
-
-	// Create new request
-	req, err := http.NewRequest(r.Method, targetURL, r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Copy headers
-	for key, values := range r.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
-
-	// Make the request
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create proxy response
-	proxyResp := &ProxyResponse{
-		StatusCode: resp.StatusCode,
-		Headers:    resp.Header,
-		Body:       body,
-	}
-
-	return proxyResp, nil
 }

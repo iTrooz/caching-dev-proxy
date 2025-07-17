@@ -20,7 +20,16 @@ type Config struct {
 
 // ServerConfig contains server-related configuration
 type ServerConfig struct {
-	Port int `yaml:"port"`
+	Port      int       `yaml:"port"`
+	SSLBumping SSLConfig `yaml:"ssl_bumping"`
+}
+
+// SSLConfig contains SSL bumping configuration
+type SSLConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+	CAFile   string `yaml:"ca_file"`
 }
 
 // CacheConfig contains cache-related configuration
@@ -110,6 +119,16 @@ func (c *Config) Validate() error {
 	}
 	if !validLogLevels[c.Log.Level] {
 		return fmt.Errorf("log level must be one of 'debug', 'info', 'warn', 'error', got: %s", c.Log.Level)
+	}
+
+	// Validate SSL bumping configuration
+	if c.Server.SSLBumping.Enabled {
+		if c.Server.SSLBumping.CAFile == "" {
+			return fmt.Errorf("ssl_bumping.ca_file is required when SSL bumping is enabled")
+		}
+		if c.Server.SSLBumping.KeyFile == "" {
+			return fmt.Errorf("ssl_bumping.key_file is required when SSL bumping is enabled")
+		}
 	}
 
 	return nil

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"flag"
 
 	"caching-dev-proxy/internal/config"
 	"caching-dev-proxy/internal/proxy"
@@ -9,12 +9,11 @@ import (
 )
 
 func main() {
-	configPath := "config.yaml"
-	if len(os.Args) > 1 {
-		configPath = os.Args[1]
-	}
+	var configPath = flag.String("config", "config.yaml", "Configuration file path")
+	
+	flag.Parse()
 
-	cfg, err := config.Load(configPath)
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to load config: %v", err)
 	}
