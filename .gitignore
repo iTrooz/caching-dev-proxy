@@ -1,5 +1,8 @@
+# Local
+/local/
+
 # Cache directory
 /cache/
 
-caching-dev-proxy
-caching-dev-proxy.exe
+/caching-dev-proxy
+/caching-dev-proxy.exe
