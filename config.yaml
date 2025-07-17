@@ -10,7 +10,8 @@ cache:
   folder: "./cache"  # Cache storage directory
 
 log:
-  level: "debug"  # Log level: "debug", "info", "warn", "error"
+  level: "debug"
+  third_party: true  # Enable logging of third-party libraries
 
 rules:
   mode: "blacklist"  # "whitelist" or "blacklist"

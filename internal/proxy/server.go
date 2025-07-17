@@ -59,7 +59,7 @@ func New(cfg *config.Config) (*Server, error) {
 
 	// Create goproxy instance
 	proxy := goproxy.NewProxyHttpServer()
-	proxy.Verbose = cfg.Log.Level == "debug"
+	proxy.Verbose = cfg.Log.ThirdParty
 
 	// Set up certificate storage for better performance during SSL bumping
 	proxy.CertStore = &simpleCertStore{certs: make(map[string]*tls.Certificate)}

@@ -52,7 +52,8 @@ type RulesConfig struct {
 
 // LogConfig contains logging configuration
 type LogConfig struct {
-	Level string `yaml:"level"` // "debug", "info", "warn", "error"
+	Level      string `yaml:"level"`
+	ThirdParty bool   `yaml:"third_party"`
 }
 
 // CacheRule defines a caching rule
