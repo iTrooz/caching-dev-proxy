@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,26 @@ import (
 	"github.com/elazarl/goproxy"
 	"github.com/sirupsen/logrus"
 )
+
+// simpleCertStore implements goproxy.CertStorage for certificate caching
+type simpleCertStore struct {
+	certs map[string]*tls.Certificate
+}
+
+func (s *simpleCertStore) Fetch(hostname string, gen func() (*tls.Certificate, error)) (*tls.Certificate, error) {
+	cert, ok := s.certs[hostname]
+	if ok {
+		return cert, nil
+	}
+	
+	cert, err := gen()
+	if err != nil {
+		return nil, err
+	}
+	
+	s.certs[hostname] = cert
+	return cert, nil
+}
 
 // ProxyResponse holds the response data from upstream
 type ProxyResponse struct {
@@ -39,6 +60,9 @@ func New(cfg *config.Config) (*Server, error) {
 	// Create goproxy instance
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = cfg.Log.Level == "debug"
+	
+	// Set up certificate storage for better performance during SSL bumping
+	proxy.CertStore = &simpleCertStore{certs: make(map[string]*tls.Certificate)}
 
 	server := &Server{
 		config:       cfg,
@@ -46,18 +70,41 @@ func New(cfg *config.Config) (*Server, error) {
 		proxy:        proxy,
 	}
 
+	// Load CA certificate if SSL bumping is enabled
+	var caCert *tls.Certificate
+	if cfg.Server.SSLBumping.Enabled {
+		cert, err := tls.LoadX509KeyPair(cfg.Server.SSLBumping.CAFile, cfg.Server.SSLBumping.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load CA certificate and key: %w", err)
+		}
+		caCert = &cert
+	}
+
 	// Configure goproxy handlers
-	server.setupProxyHandlers()
+	server.setupProxyHandlers(caCert)
 
 	return server, nil
 }
 
 // setupProxyHandlers configures the goproxy handlers
-func (s *Server) setupProxyHandlers() {
+func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 	// Handle CONNECT requests (HTTPS tunneling)
-	if s.config.Server.SSLBumping.Enabled && s.certManager != nil {
-		// Enable SSL bumping for HTTPS traffic
-		s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	if s.config.Server.SSLBumping.Enabled {
+		if caCert == nil {
+			// Use goproxy's default certificate
+			logrus.Warnf("SSL bumping enabled but no CA certificate loaded, using goproxy default certificate")
+			s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+		} else {
+			// Make goproxy use our provided CA certificate
+			customCaMitm := &goproxy.ConnectAction{
+				Action:    goproxy.ConnectMitm, 
+				TLSConfig: goproxy.TLSConfigFromCA(caCert),
+			}
+			customAlwaysMitm := goproxy.FuncHttpsHandler(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+				return customCaMitm, host
+			})			
+			s.proxy.OnRequest().HandleConnect(customAlwaysMitm)
+		}
 	}
 	// If SSL bumping is disabled, goproxy will handle CONNECT requests normally by default
 
@@ -129,7 +176,7 @@ func (s *Server) Start() error {
 	logrus.Infof("Cache TTL: %s", s.config.Cache.TTL)
 	logrus.Infof("Rules mode: %s", s.config.Rules.Mode)
 	if s.config.Server.SSLBumping.Enabled {
-		logrus.Infof("SSL bumping: enabled")
+		logrus.Infof("SSL bumping: enabled with CA certificate: %s", s.config.Server.SSLBumping.CAFile)
 	} else {
 		logrus.Infof("SSL bumping: disabled")
 	}

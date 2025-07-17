@@ -1,12 +1,17 @@
 server:
   port: 8080
+  ssl_bumping:
+    enabled: true  # Set to true to enable SSL bumping
+    cert_file: "./ssl/server.crt"  # Server certificate for SSL bumping
+    key_file: "./ssl/ca.key"   # Server private key for SSL bumping
+    ca_file: "./ssl/ca.crt"        # CA certificate for generating dynamic certs
 
 cache:
   ttl: "1h"  # Cache time-to-live (e.g., "30m", "1h", "24h")
   folder: "./cache"  # Cache storage directory
 
 log:
-  level: "info"  # Log level: "debug", "info", "warn", "error"
+  level: "debug"  # Log level: "debug", "info", "warn", "error"
 
 rules:
   mode: "blacklist"  # "whitelist" or "blacklist"
