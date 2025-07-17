@@ -24,12 +24,12 @@ func (s *simpleCertStore) Fetch(hostname string, gen func() (*tls.Certificate, e
 	if ok {
 		return cert, nil
 	}
-	
+
 	cert, err := gen()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	s.certs[hostname] = cert
 	return cert, nil
 }
@@ -60,7 +60,7 @@ func New(cfg *config.Config) (*Server, error) {
 	// Create goproxy instance
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = cfg.Log.Level == "debug"
-	
+
 	// Set up certificate storage for better performance during SSL bumping
 	proxy.CertStore = &simpleCertStore{certs: make(map[string]*tls.Certificate)}
 
@@ -73,7 +73,7 @@ func New(cfg *config.Config) (*Server, error) {
 	// Load CA certificate if SSL bumping is enabled
 	var caCert *tls.Certificate
 	if cfg.Server.SSLBumping.Enabled {
-		cert, err := tls.LoadX509KeyPair(cfg.Server.SSLBumping.CAFile, cfg.Server.SSLBumping.KeyFile)
+		cert, err := tls.LoadX509KeyPair(cfg.Server.SSLBumping.CACertFile, cfg.Server.SSLBumping.CAKeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load CA certificate and key: %w", err)
 		}
@@ -97,12 +97,12 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 		} else {
 			// Make goproxy use our provided CA certificate
 			customCaMitm := &goproxy.ConnectAction{
-				Action:    goproxy.ConnectMitm, 
+				Action:    goproxy.ConnectMitm,
 				TLSConfig: goproxy.TLSConfigFromCA(caCert),
 			}
 			customAlwaysMitm := goproxy.FuncHttpsHandler(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 				return customCaMitm, host
-			})			
+			})
 			s.proxy.OnRequest().HandleConnect(customAlwaysMitm)
 		}
 	}
@@ -176,7 +176,7 @@ func (s *Server) Start() error {
 	logrus.Infof("Cache TTL: %s", s.config.Cache.TTL)
 	logrus.Infof("Rules mode: %s", s.config.Rules.Mode)
 	if s.config.Server.SSLBumping.Enabled {
-		logrus.Infof("SSL bumping: enabled with CA certificate: %s", s.config.Server.SSLBumping.CAFile)
+		logrus.Infof("SSL bumping: enabled with CA certificate: %s", s.config.Server.SSLBumping.CACertFile)
 	} else {
 		logrus.Infof("SSL bumping: disabled")
 	}
