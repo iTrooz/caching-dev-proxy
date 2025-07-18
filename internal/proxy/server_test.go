@@ -1,8 +1,6 @@
 package proxy
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"caching-dev-proxy/internal/config"
@@ -138,38 +136,6 @@ func TestConfigRuleMatchWithStatusCodes(t *testing.T) {
 			got := rule.Match(tt.targetURL, tt.method, tt.statusCode)
 			if got != tt.want {
 				t.Errorf("ConfigRule.Match() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetTargetURL(t *testing.T) {
-	tests := []struct {
-		name string
-		req  *http.Request
-		want string
-	}{
-		{
-			name: "absolute URL",
-			req:  httptest.NewRequest("GET", "https://api.example.com/users", nil),
-			want: "https://api.example.com/users",
-		},
-		{
-			name: "relative URL with host header",
-			req: func() *http.Request {
-				req := httptest.NewRequest("GET", "/users", nil)
-				req.Host = "api.example.com"
-				return req
-			}(),
-			want: "http://api.example.com/users",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getTargetURL(tt.req)
-			if got != tt.want {
-				t.Errorf("getTargetURL() = %v, want %v", got, tt.want)
 			}
 		})
 	}

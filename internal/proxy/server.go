@@ -45,7 +45,7 @@ type ProxyResponse struct {
 // Server represents the caching proxy server
 type Server struct {
 	config       *config.Config
-	cacheManager cache.Cache
+	cacheManager *cache.HTTPCache
 	proxy        *goproxy.ProxyHttpServer
 	rules        []Rule
 }
@@ -57,7 +57,11 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, fmt.Errorf("invalid cache TTL: %w", err)
 	}
 
-	cacheManager := cache.NewDisk(cfg.Cache.Folder, cacheTTL)
+	generic := cache.NewGenericDisk(cfg.Cache.Folder, cacheTTL)
+	if err := generic.Init(); err != nil {
+		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+	}
+	cacheManager := cache.NewHTTP(generic)
 
 	// Create goproxy instance
 	proxy := goproxy.NewProxyHttpServer()
@@ -95,6 +99,20 @@ func New(cfg *config.Config) (*Server, error) {
 	return server, nil
 }
 
+func copyResponse(resp *http.Response) (*http.Response, error) {
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	err := resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close response body: %w", err)
+	}
+
+	respCopy := *resp
+	respCopy.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	return &respCopy, nil
+}
+
 // setupProxyHandlers configures the goproxy handlers
 func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 	// Handle CONNECT requests (HTTPS tunneling)
@@ -119,6 +137,7 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 
 	// Handle HTTP requests with caching
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		logrus.Debugf("OnRequest()")
 		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
 
 		// Check if we have a cached response
@@ -135,34 +154,22 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 
 	// Handle responses for caching
 	s.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
+		logrus.Debugf("OnResponse()")
 		if resp == nil || ctx.Req == nil {
 			return resp
 		}
 
 		// Read response body for caching
 		if resp.Body != nil {
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				logrus.Errorf("Failed to read response body for %s: %v", ctx.Req.URL.String(), err)
-				return resp
-			}
-			if err := resp.Body.Close(); err != nil {
-				logrus.Errorf("Failed to close response body for %s: %v", ctx.Req.URL.String(), err)
-			}
-
-			// Create new response body
-			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-
-			// Create ProxyResponse for caching logic
-			proxyResp := &ProxyResponse{
-				StatusCode: resp.StatusCode,
-				Headers:    resp.Header,
-				Body:       bodyBytes,
-			}
-
 			// Cache the response if it should be cached
-			if s.shouldBeCached(ctx.Req, proxyResp) {
-				s.cacheResponse(ctx.Req, proxyResp)
+			isCacheHit := resp.Header.Get("X-Cache") == "HIT"
+			if isCacheHit && s.shouldBeCached(ctx.Req, resp) {
+				respCopy, err := copyResponse(resp)
+				if err != nil {
+					logrus.Errorf("Failed to copy response for caching: %v", err)
+				} else {
+					s.cacheResponse(ctx.Req, respCopy)
+				}
 			}
 
 			// Add cache header only if not already set (to avoid overwriting cache hits)
@@ -179,11 +186,6 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 
 // Start starts the proxy server
 func (s *Server) Start() error {
-	// Ensure cache directory exists
-	if err := s.cacheManager.Init(); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
-	}
-
 	logrus.Infof("Starting caching proxy on port %d", s.config.Server.Port)
 	logrus.Infof("Cache directory: %s", s.config.Cache.Folder)
 	logrus.Infof("Cache TTL: %s", s.config.Cache.TTL)
@@ -204,40 +206,17 @@ func (s *Server) GetProxy() *goproxy.ProxyHttpServer {
 
 // getCachedResponse returns a cached HTTP response if available
 func (s *Server) getCachedResponse(r *http.Request) *http.Response {
-	targetURL := getTargetURL(r)
-	cachePath, err := s.cacheManager.GetKey(targetURL, r.Method)
+	resp, err := s.cacheManager.Get(r)
 	if err != nil {
-		logrus.Errorf("Failed to get cache key for %s: %v", targetURL, err)
+		logrus.Errorf("Failed to get cached data for %s: %v", r.URL, err)
+		return nil
+	}
+	if resp == nil {
+		logrus.Debugf("No cached data found for %s", r.URL)
 		return nil
 	}
 
-	data, err := s.cacheManager.Get(cachePath)
-	if err != nil {
-		logrus.Errorf("Failed to get cached data for %s: %v", targetURL, err)
-		return nil
-	}
-	if data == nil {
-		logrus.Debugf("No cached data found for %s", targetURL)
-		return nil
-	}
-
-	// Create HTTP response from cached data
-	resp := &http.Response{
-		Status:        "200 OK",
-		StatusCode:    200,
-		Proto:         "HTTP/1.1",
-		ProtoMajor:    1,
-		ProtoMinor:    1,
-		Header:        make(http.Header),
-		Body:          io.NopCloser(bytes.NewReader(data)),
-		ContentLength: int64(len(data)),
-		Request:       r,
-	}
-
-	// Set cache headers
 	resp.Header.Set("X-Cache", "HIT")
-	resp.Header.Set("X-Cache-File", cachePath)
-	resp.Header.Set("Content-Type", "text/html; charset=utf-8") // Default content type
 
 	return resp
 }
@@ -256,30 +235,21 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 // isCached checks if we should attempt to serve from cache
 func (s *Server) isCached(r *http.Request) bool {
-	targetURL := getTargetURL(r)
-	cachePath, err := s.cacheManager.GetKey(targetURL, r.Method)
-	if err != nil {
-		logrus.Errorf("Failed to get cache key for %s: %v", targetURL, err)
-		return false
-	}
-
 	// Check if cached file exists and is not expired
-	_, err = s.cacheManager.Get(cachePath)
+	_, err := s.cacheManager.Get(r)
 	if err != nil {
-		logrus.Errorf("Failed to get cached data for %s: %v", targetURL, err)
+		logrus.Errorf("Failed to get cached data for %s: %v", r.URL, err)
 		return false
 	}
-	logrus.Debugf("Cache hit for %s", targetURL)
+	logrus.Debugf("Cache hit for %s", r.URL)
 	return true
 }
 
 // shouldBeCached determines if a response should be cached based on rules
-func (s *Server) shouldBeCached(r *http.Request, resp *ProxyResponse) bool {
-	targetURL := getTargetURL(r)
-
+func (s *Server) shouldBeCached(r *http.Request, resp *http.Response) bool {
 	matched := false
 	for _, rule := range s.rules {
-		if rule.Match(targetURL, r.Method, resp.StatusCode) {
+		if rule.Match(r.URL.String(), r.Method, resp.StatusCode) {
 			matched = true
 			break
 		}
@@ -293,14 +263,8 @@ func (s *Server) shouldBeCached(r *http.Request, resp *ProxyResponse) bool {
 }
 
 // cacheResponse stores a response in the cache
-func (s *Server) cacheResponse(r *http.Request, resp *ProxyResponse) {
-	targetURL := getTargetURL(r)
-	cachePath, err := s.cacheManager.GetKey(targetURL, r.Method)
-	if err != nil {
-		logrus.Errorf("Failed to get cache key for %s: %v", targetURL, err)
-		return
-	}
-	if err := s.cacheManager.Set(cachePath, resp.Body); err != nil {
-		logrus.Errorf("Failed to cache response for %s: %v", targetURL, err)
+func (s *Server) cacheResponse(r *http.Request, resp *http.Response) {
+	if err := s.cacheManager.Set(r, resp); err != nil {
+		logrus.Errorf("Failed to cache response for %s: %v", r.URL.String(), err)
 	}
 }
