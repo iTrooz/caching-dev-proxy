@@ -69,10 +69,7 @@ func TestProxyIntegrationWithCustomRules(t *testing.T) {
 	upstream := fixture_upstream()
 	defer upstream.Close()
 
-	// Create temporary directory for cache
-	tempDir := t.TempDir()
-
-	// Create custom rules (blacklist mode)
+	// Create config
 	customRules := &config.RulesConfig{
 		Mode: "blacklist",
 		Rules: []config.CacheRule{
@@ -82,9 +79,7 @@ func TestProxyIntegrationWithCustomRules(t *testing.T) {
 			},
 		},
 	}
-
-	// Create test config with custom rules
-	cfg := fixture_config(tempDir, customRules)
+	cfg := fixture_config(t.TempDir(), customRules)
 
 	// Create proxy server
 	_, proxyTestServer, client, err := fixture_proxy(cfg)
