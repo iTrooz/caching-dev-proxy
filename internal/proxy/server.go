@@ -161,9 +161,9 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 
 		// Read response body for caching
 		if resp.Body != nil {
-			// Cache the response if it should be cached
+			// Cache the response if it should be cached and it's not already a cache hit
 			isCacheHit := resp.Header.Get("X-Cache") == "HIT"
-			if isCacheHit && s.shouldBeCached(ctx.Req, resp) {
+			if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
 				respCopy, err := copyResponse(resp)
 				if err != nil {
 					logrus.Errorf("Failed to copy response for caching: %v", err)
@@ -236,13 +236,16 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 // isCached checks if we should attempt to serve from cache
 func (s *Server) isCached(r *http.Request) bool {
 	// Check if cached file exists and is not expired
-	_, err := s.cacheManager.Get(r)
+	data, err := s.cacheManager.Get(r)
 	if err != nil {
 		logrus.Errorf("Failed to get cached data for %s: %v", r.URL, err)
 		return false
 	}
-	logrus.Debugf("Cache hit for %s", r.URL)
-	return true
+	if data != nil {
+		logrus.Debugf("Cache hit for %s", r.URL)
+		return true
+	}
+	return false
 }
 
 // shouldBeCached determines if a response should be cached based on rules

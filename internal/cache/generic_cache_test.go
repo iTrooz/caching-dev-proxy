@@ -33,9 +33,10 @@ func TestGenericDiskSetAndGet(t *testing.T) {
 		t.Fatalf("Set() error = %v", err)
 	}
 
-	// Verify file exists
-	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
-		t.Fatalf("Cache file was not created")
+	// Verify file exists at the correct location
+	expectedPath := filepath.Join(tempDir, cachePath)
+	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+		t.Fatalf("Cache file was not created at %s", expectedPath)
 	}
 
 	// Test Get
