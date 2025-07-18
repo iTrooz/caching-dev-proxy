@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -37,10 +38,10 @@ func fixture_config(tempDir string, rules *config.RulesConfig) *config.Config {
 }
 
 // fixture_proxy creates a proxy server with the given config and returns the server, test server, and HTTP client
-func fixture_proxy(cfg *config.Config) (*proxy.Server, *httptest.Server, *http.Client, error) {
+func fixture_proxy(cfg *config.Config) (*proxy.Server, *httptest.Server, *http.Client) {
 	proxyServer, err := proxy.New(cfg)
 	if err != nil {
-		return nil, nil, nil, err
+		panic(fmt.Errorf("failed to create proxy server: %w", err))
 	}
 
 	// Create test proxy HTTP server using goproxy
@@ -55,5 +56,5 @@ func fixture_proxy(cfg *config.Config) (*proxy.Server, *httptest.Server, *http.C
 		Timeout: 10 * time.Second,
 	}
 
-	return proxyServer, proxyTestServer, client, nil
+	return proxyServer, proxyTestServer, client
 }

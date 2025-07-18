@@ -24,8 +24,7 @@ func TestProxyIntegration(t *testing.T) {
 	cfg := fixture_config(tempDir, nil)
 
 	// Create proxy server
-	_, proxyTestServer, client, err := fixture_proxy(cfg)
-	require.NoError(t, err, "Failed to create proxy server")
+	_, proxyTestServer, client := fixture_proxy(cfg)
 	defer proxyTestServer.Close()
 
 	// Test first request (should hit upstream and cache)
@@ -82,8 +81,7 @@ func TestProxyIntegrationWithCustomRules(t *testing.T) {
 	cfg := fixture_config(t.TempDir(), customRules)
 
 	// Create proxy server
-	_, proxyTestServer, client, err := fixture_proxy(cfg)
-	require.NoError(t, err, "Failed to create proxy server")
+	_, proxyTestServer, client := fixture_proxy(cfg)
 	defer proxyTestServer.Close()
 
 	// Test that requests are cached (since we're using blacklist mode and the upstream URL is not in the blacklist)
