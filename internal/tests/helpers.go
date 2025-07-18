@@ -3,6 +3,8 @@ package tests
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"time"
 
 	"caching-dev-proxy/internal/config"
 	"caching-dev-proxy/internal/proxy"
@@ -34,15 +36,24 @@ func fixture_config(tempDir string, rules *config.RulesConfig) *config.Config {
 	return cfg
 }
 
-// fixture_proxy creates a proxy server with the given config and returns the server and test server
-func fixture_proxy(cfg *config.Config) (*proxy.Server, *httptest.Server, error) {
+// fixture_proxy creates a proxy server with the given config and returns the server, test server, and HTTP client
+func fixture_proxy(cfg *config.Config) (*proxy.Server, *httptest.Server, *http.Client, error) {
 	proxyServer, err := proxy.New(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Create test proxy HTTP server using goproxy
 	proxyTestServer := httptest.NewServer(proxyServer.GetProxy())
 
-	return proxyServer, proxyTestServer, nil
+	// Create HTTP client that uses our proxy
+	proxyURL, _ := url.Parse(proxyTestServer.URL)
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	return proxyServer, proxyTestServer, client, nil
 }

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"caching-dev-proxy/internal/config"
 )
@@ -23,20 +22,11 @@ func TestProxyIntegration(t *testing.T) {
 	cfg := fixture_config(tempDir, nil)
 
 	// Create proxy server
-	_, proxyTestServer, err := fixture_proxy(cfg)
+	_, proxyTestServer, client, err := fixture_proxy(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create proxy server: %v", err)
 	}
 	defer proxyTestServer.Close()
-
-	// Create HTTP client that uses our proxy
-	proxyURL, _ := url.Parse(proxyTestServer.URL)
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
-		},
-		Timeout: 10 * time.Second,
-	}
 
 	// Test first request (should hit upstream and cache)
 	t.Run("first request - cache miss", func(t *testing.T) {
@@ -116,20 +106,11 @@ func TestProxyIntegrationWithCustomRules(t *testing.T) {
 	cfg := fixture_config(tempDir, customRules)
 
 	// Create proxy server
-	_, proxyTestServer, err := fixture_proxy(cfg)
+	_, proxyTestServer, client, err := fixture_proxy(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create proxy server: %v", err)
 	}
 	defer proxyTestServer.Close()
-
-	// Create HTTP client that uses our proxy
-	proxyURL, _ := url.Parse(proxyTestServer.URL)
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
-		},
-		Timeout: 10 * time.Second,
-	}
 
 	// Test that requests are cached (since we're using blacklist mode and the upstream URL is not in the blacklist)
 	t.Run("request should be cached with blacklist rules", func(t *testing.T) {
