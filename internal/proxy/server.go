@@ -44,7 +44,7 @@ type ProxyResponse struct {
 // Server represents the caching proxy server
 type Server struct {
 	config       *config.Config
-	cacheManager *cache.Manager
+	cacheManager cache.Cache
 	proxy        *goproxy.ProxyHttpServer
 	rules        []Rule
 }
@@ -56,7 +56,7 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, fmt.Errorf("invalid cache TTL: %w", err)
 	}
 
-	cacheManager := cache.New(cfg.Cache.Folder, cacheTTL)
+	cacheManager := cache.NewDisk(cfg.Cache.Folder, cacheTTL)
 
 	// Create goproxy instance
 	proxy := goproxy.NewProxyHttpServer()
@@ -179,7 +179,7 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 // Start starts the proxy server
 func (s *Server) Start() error {
 	// Ensure cache directory exists
-	if err := s.cacheManager.EnsureDir(); err != nil {
+	if err := s.cacheManager.Init(); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -204,7 +204,7 @@ func (s *Server) GetProxy() *goproxy.ProxyHttpServer {
 // getCachedResponse returns a cached HTTP response if available
 func (s *Server) getCachedResponse(r *http.Request) *http.Response {
 	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetPath(targetURL, r.Method)
+	cachePath := s.cacheManager.GetKey(targetURL, r.Method)
 
 	data, found := s.cacheManager.Get(cachePath)
 	if !found {
@@ -247,7 +247,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 // isCached checks if we should attempt to serve from cache
 func (s *Server) isCached(r *http.Request) bool {
 	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetPath(targetURL, r.Method)
+	cachePath := s.cacheManager.GetKey(targetURL, r.Method)
 
 	// Check if cached file exists and is not expired
 	_, found := s.cacheManager.Get(cachePath)
@@ -276,7 +276,7 @@ func (s *Server) shouldBeCached(r *http.Request, resp *ProxyResponse) bool {
 // cacheResponse stores a response in the cache
 func (s *Server) cacheResponse(r *http.Request, resp *ProxyResponse) {
 	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetPath(targetURL, r.Method)
+	cachePath := s.cacheManager.GetKey(targetURL, r.Method)
 	if err := s.cacheManager.Set(cachePath, resp.Body); err != nil {
 		logrus.Errorf("Failed to cache response: %v", err)
 	}

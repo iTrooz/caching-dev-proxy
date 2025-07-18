@@ -11,19 +11,24 @@ func TestNew(t *testing.T) {
 	cacheDir := "/tmp/test_cache"
 	ttl := time.Hour
 
-	manager := New(cacheDir, ttl)
+	cache := NewDisk(cacheDir, ttl)
 
-	if manager.cacheDir != cacheDir {
-		t.Errorf("Expected cacheDir %s, got %s", cacheDir, manager.cacheDir)
+	// Test that NewDisk returns a non-nil cache
+	if cache == nil {
+		t.Error("Expected non-nil cache")
 	}
 
-	if manager.ttl != ttl {
-		t.Errorf("Expected TTL %v, got %v", ttl, manager.ttl)
+	// Test that the cache behaves correctly by testing its methods
+	testURL := "https://example.com/test"
+	testMethod := "GET"
+	path := cache.GetKey(testURL, testMethod)
+	if path == "" {
+		t.Error("Expected non-empty path")
 	}
 }
 
 func TestGetPath(t *testing.T) {
-	manager := New("/tmp/cache", time.Hour)
+	cache := NewDisk("/tmp/cache", time.Hour)
 
 	tests := []struct {
 		name      string
@@ -53,7 +58,7 @@ func TestGetPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := manager.GetPath(tt.targetURL, tt.method)
+			got := cache.GetKey(tt.targetURL, tt.method)
 			if got != tt.want {
 				t.Errorf("GetPath() = %v, want %v", got, tt.want)
 			}
@@ -63,14 +68,14 @@ func TestGetPath(t *testing.T) {
 
 func TestSetAndGet(t *testing.T) {
 	tempDir := t.TempDir()
-	manager := New(tempDir, time.Hour)
+	cache := NewDisk(tempDir, time.Hour)
 
 	// Test data
 	cachePath := filepath.Join(tempDir, "test", "cache.bin")
 	testData := []byte("test response data")
 
 	// Test Set
-	err := manager.Set(cachePath, testData)
+	err := cache.Set(cachePath, testData)
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
@@ -81,7 +86,7 @@ func TestSetAndGet(t *testing.T) {
 	}
 
 	// Test Get
-	data, found := manager.Get(cachePath)
+	data, found := cache.Get(cachePath)
 	if !found {
 		t.Fatalf("Get() found = false, want true")
 	}
@@ -93,13 +98,13 @@ func TestSetAndGet(t *testing.T) {
 
 func TestGetExpired(t *testing.T) {
 	tempDir := t.TempDir()
-	manager := New(tempDir, 100*time.Millisecond) // Very short TTL
+	cache := NewDisk(tempDir, 100*time.Millisecond) // Very short TTL
 
 	cachePath := filepath.Join(tempDir, "expired.bin")
 	testData := []byte("test data")
 
 	// Set data
-	err := manager.Set(cachePath, testData)
+	err := cache.Set(cachePath, testData)
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
@@ -108,7 +113,7 @@ func TestGetExpired(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Try to get expired data
-	_, found := manager.Get(cachePath)
+	_, found := cache.Get(cachePath)
 	if found {
 		t.Errorf("Get() found = true, want false (should be expired)")
 	}
@@ -119,15 +124,15 @@ func TestGetExpired(t *testing.T) {
 	}
 }
 
-func TestEnsureDir(t *testing.T) {
+func TestInit(t *testing.T) {
 	tempDir := t.TempDir()
 	cacheDir := filepath.Join(tempDir, "new", "cache", "dir")
 
-	manager := New(cacheDir, time.Hour)
+	cache := NewDisk(cacheDir, time.Hour)
 
-	err := manager.EnsureDir()
+	err := cache.Init()
 	if err != nil {
-		t.Fatalf("EnsureDir() error = %v", err)
+		t.Fatalf("Init() error = %v", err)
 	}
 
 	// Verify directory was created
