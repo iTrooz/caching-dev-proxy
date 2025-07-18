@@ -1,4 +1,4 @@
-package main
+package tests
 
 import (
 	"net/http"
@@ -18,7 +18,7 @@ func fixture_upstream() *httptest.Server {
 }
 
 // fixture_config creates a test config with optional rules
-func fixture_config(upstreamURL, tempDir string, rules *config.RulesConfig) *config.Config {
+func fixture_config(tempDir string, rules *config.RulesConfig) *config.Config {
 	cfg := &config.Config{
 		Server: config.ServerConfig{Port: 0}, // Will be set by test server
 		Cache: config.CacheConfig{

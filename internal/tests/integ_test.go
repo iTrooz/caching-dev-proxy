@@ -1,4 +1,4 @@
-package main
+package tests
 
 import (
 	"io"
@@ -18,11 +18,9 @@ func TestProxyIntegration(t *testing.T) {
 	upstream := fixture_upstream()
 	defer upstream.Close()
 
-	// Create temporary directory for cache
-	tempDir := t.TempDir()
-
 	// Create test config
-	cfg := fixture_config(upstream.URL, tempDir, nil)
+	tempDir := t.TempDir()
+	cfg := fixture_config(tempDir, nil)
 
 	// Create proxy server
 	_, proxyTestServer, err := fixture_proxy(cfg)
@@ -115,7 +113,7 @@ func TestProxyIntegrationWithCustomRules(t *testing.T) {
 	}
 
 	// Create test config with custom rules
-	cfg := fixture_config(upstream.URL, tempDir, customRules)
+	cfg := fixture_config(tempDir, customRules)
 
 	// Create proxy server
 	_, proxyTestServer, err := fixture_proxy(cfg)
