@@ -14,7 +14,7 @@ import (
 	"caching-dev-proxy/internal/config"
 )
 
-func TestProxyIntegration(t *testing.T) {
+func TestSimpleHit(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
 	defer upstream.Close()
@@ -63,7 +63,7 @@ func TestProxyIntegration(t *testing.T) {
 	})
 }
 
-func TestProxyIntegrationWithCustomRules(t *testing.T) {
+func TestHitWithBlacklist(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
 	defer upstream.Close()
