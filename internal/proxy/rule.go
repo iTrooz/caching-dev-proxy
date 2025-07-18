@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net/http"
 	"strings"
 
 	"caching-dev-proxy/internal/config"
@@ -8,7 +9,7 @@ import (
 
 // Rule interface for matching requests against caching rules
 type Rule interface {
-	Match(targetURL, method string, statusCode int) bool
+	Match(requ *http.Request, resp *http.Response) bool
 }
 
 // ConfigRule implements Rule interface for config-based rules
@@ -17,16 +18,16 @@ type ConfigRule struct {
 }
 
 // Match checks if a request matches this rule
-func (r *ConfigRule) Match(targetURL, method string, statusCode int) bool {
+func (r *ConfigRule) Match(requ *http.Request, resp *http.Response) bool {
 	// Check if URL starts with base URI
-	if !strings.HasPrefix(targetURL, r.BaseURI) {
+	if !strings.HasPrefix(requ.URL.String(), r.BaseURI) {
 		return false
 	}
 
 	// Check if method matches
 	methodMatches := false
 	for _, m := range r.Methods {
-		if strings.EqualFold(m, method) {
+		if strings.EqualFold(m, requ.Method) {
 			methodMatches = true
 			break
 		}
@@ -39,7 +40,7 @@ func (r *ConfigRule) Match(targetURL, method string, statusCode int) bool {
 	if len(r.StatusCodes) > 0 {
 		statusMatches := false
 		for _, statusPattern := range r.StatusCodes {
-			if config.MatchesStatusCode(statusCode, statusPattern) {
+			if config.MatchesStatusCode(resp.StatusCode, statusPattern) {
 				statusMatches = true
 				break
 			}

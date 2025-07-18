@@ -252,7 +252,7 @@ func (s *Server) isCached(requ *http.Request) bool {
 func (s *Server) shouldBeCached(requ *http.Request, resp *http.Response) bool {
 	matched := false
 	for _, rule := range s.rules {
-		if rule.Match(requ.URL.String(), requ.Method, resp.StatusCode) {
+		if rule.Match(requ, resp) {
 			matched = true
 			break
 		}

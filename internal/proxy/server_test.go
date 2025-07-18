@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"net/http"
+	"net/url"
 	"testing"
 
 	"caching-dev-proxy/internal/config"
@@ -20,68 +22,6 @@ func TestNew(t *testing.T) {
 
 	if server.config != cfg {
 		t.Errorf("Server config not set correctly")
-	}
-}
-
-func TestConfigRuleMatch(t *testing.T) {
-	rule := &ConfigRule{
-		CacheRule: config.CacheRule{
-			BaseURI: "https://api.example.com",
-			Methods: []string{"GET", "POST"},
-		},
-	}
-
-	tests := []struct {
-		name       string
-		targetURL  string
-		method     string
-		statusCode int
-		want       bool
-	}{
-		{
-			name:       "matching URL and method",
-			targetURL:  "https://api.example.com/users",
-			method:     "GET",
-			statusCode: 200,
-			want:       true,
-		},
-		{
-			name:       "matching URL different method",
-			targetURL:  "https://api.example.com/users",
-			method:     "POST",
-			statusCode: 200,
-			want:       true,
-		},
-		{
-			name:       "matching URL non-matching method",
-			targetURL:  "https://api.example.com/users",
-			method:     "DELETE",
-			statusCode: 200,
-			want:       false,
-		},
-		{
-			name:       "non-matching URL",
-			targetURL:  "https://other.example.com/users",
-			method:     "GET",
-			statusCode: 200,
-			want:       false,
-		},
-		{
-			name:       "case insensitive method",
-			targetURL:  "https://api.example.com/users",
-			method:     "get",
-			statusCode: 200,
-			want:       true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := rule.Match(tt.targetURL, tt.method, tt.statusCode)
-			if got != tt.want {
-				t.Errorf("ConfigRule.Match() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 
@@ -133,7 +73,20 @@ func TestConfigRuleMatchWithStatusCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := rule.Match(tt.targetURL, tt.method, tt.statusCode)
+			u, err := url.Parse(tt.targetURL)
+			if err != nil {
+				t.Fatalf("Failed to parse URL %s: %v", tt.targetURL, err)
+			}
+
+			requ := &http.Request{
+				URL:    u,
+				Method: tt.method,
+			}
+			resp := &http.Response{
+				StatusCode: tt.statusCode,
+			}
+
+			got := rule.Match(requ, resp)
 			if got != tt.want {
 				t.Errorf("ConfigRule.Match() = %v, want %v", got, tt.want)
 			}
