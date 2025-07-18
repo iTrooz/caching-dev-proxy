@@ -21,7 +21,10 @@ func TestNew(t *testing.T) {
 	// Test that the cache behaves correctly by testing its methods
 	testURL := "https://example.com/test"
 	testMethod := "GET"
-	path := cache.GetKey(testURL, testMethod)
+	path, err := cache.GetKey(testURL, testMethod)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
 	if path == "" {
 		t.Error("Expected non-empty path")
 	}
@@ -58,7 +61,11 @@ func TestGetPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := cache.GetKey(tt.targetURL, tt.method)
+			got, err := cache.GetKey(tt.targetURL, tt.method)
+			if err != nil {
+				t.Errorf("GetKey() error = %v", err)
+				return
+			}
 			if got != tt.want {
 				t.Errorf("GetPath() = %v, want %v", got, tt.want)
 			}
@@ -86,9 +93,12 @@ func TestSetAndGet(t *testing.T) {
 	}
 
 	// Test Get
-	data, found := cache.Get(cachePath)
-	if !found {
-		t.Fatalf("Get() found = false, want true")
+	data, err := cache.Get(cachePath)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if data == nil {
+		t.Fatalf("Get() returned nil data, want cached data")
 	}
 
 	if string(data) != string(testData) {
@@ -113,9 +123,12 @@ func TestGetExpired(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Try to get expired data
-	_, found := cache.Get(cachePath)
-	if found {
-		t.Errorf("Get() found = true, want false (should be expired)")
+	data, err := cache.Get(cachePath)
+	if err != nil {
+		t.Errorf("Get() error = %v", err)
+	}
+	if data != nil {
+		t.Errorf("Get() returned data for expired cache, want nil")
 	}
 
 	// Verify file was deleted
@@ -138,5 +151,21 @@ func TestInit(t *testing.T) {
 	// Verify directory was created
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
 		t.Fatalf("Cache directory was not created")
+	}
+}
+
+func TestGetKeyError(t *testing.T) {
+	cache := NewDisk("/tmp/cache", time.Hour)
+
+	// Test with invalid URL
+	_, err := cache.GetKey("://invalid-url", "GET")
+	if err == nil {
+		t.Error("Expected error for invalid URL, got nil")
+	}
+
+	// Test with valid URL should not error
+	_, err = cache.GetKey("https://example.com", "GET")
+	if err != nil {
+		t.Errorf("Expected no error for valid URL, got: %v", err)
 	}
 }

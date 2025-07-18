@@ -27,7 +27,8 @@ func (s *simpleCertStore) Fetch(hostname string, gen func() (*tls.Certificate, e
 
 	cert, err := gen()
 	if err != nil {
-		return nil, err
+		logrus.Errorf("Failed to generate certificate for hostname '%s': %v", hostname, err)
+		return nil, fmt.Errorf("failed to generate certificate for hostname '%s': %w", hostname, err)
 	}
 
 	s.certs[hostname] = cert
@@ -142,11 +143,11 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 		if resp.Body != nil {
 			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
-				logrus.Errorf("Failed to read response body: %v", err)
+				logrus.Errorf("Failed to read response body for %s: %v", ctx.Req.URL.String(), err)
 				return resp
 			}
 			if err := resp.Body.Close(); err != nil {
-				logrus.Errorf("Failed to close response body: %v", err)
+				logrus.Errorf("Failed to close response body for %s: %v", ctx.Req.URL.String(), err)
 			}
 
 			// Create new response body
@@ -204,10 +205,19 @@ func (s *Server) GetProxy() *goproxy.ProxyHttpServer {
 // getCachedResponse returns a cached HTTP response if available
 func (s *Server) getCachedResponse(r *http.Request) *http.Response {
 	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetKey(targetURL, r.Method)
+	cachePath, err := s.cacheManager.GetKey(targetURL, r.Method)
+	if err != nil {
+		logrus.Errorf("Failed to get cache key for %s: %v", targetURL, err)
+		return nil
+	}
 
-	data, found := s.cacheManager.Get(cachePath)
-	if !found {
+	data, err := s.cacheManager.Get(cachePath)
+	if err != nil {
+		logrus.Errorf("Failed to get cached data for %s: %v", targetURL, err)
+		return nil
+	}
+	if data == nil {
+		logrus.Debugf("No cached data found for %s", targetURL)
 		return nil
 	}
 
@@ -247,11 +257,20 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 // isCached checks if we should attempt to serve from cache
 func (s *Server) isCached(r *http.Request) bool {
 	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetKey(targetURL, r.Method)
+	cachePath, err := s.cacheManager.GetKey(targetURL, r.Method)
+	if err != nil {
+		logrus.Errorf("Failed to get cache key for %s: %v", targetURL, err)
+		return false
+	}
 
 	// Check if cached file exists and is not expired
-	_, found := s.cacheManager.Get(cachePath)
-	return found
+	_, err = s.cacheManager.Get(cachePath)
+	if err != nil {
+		logrus.Errorf("Failed to get cached data for %s: %v", targetURL, err)
+		return false
+	}
+	logrus.Debugf("Cache hit for %s", targetURL)
+	return true
 }
 
 // shouldBeCached determines if a response should be cached based on rules
@@ -276,8 +295,12 @@ func (s *Server) shouldBeCached(r *http.Request, resp *ProxyResponse) bool {
 // cacheResponse stores a response in the cache
 func (s *Server) cacheResponse(r *http.Request, resp *ProxyResponse) {
 	targetURL := getTargetURL(r)
-	cachePath := s.cacheManager.GetKey(targetURL, r.Method)
+	cachePath, err := s.cacheManager.GetKey(targetURL, r.Method)
+	if err != nil {
+		logrus.Errorf("Failed to get cache key for %s: %v", targetURL, err)
+		return
+	}
 	if err := s.cacheManager.Set(cachePath, resp.Body); err != nil {
-		logrus.Errorf("Failed to cache response: %v", err)
+		logrus.Errorf("Failed to cache response for %s: %v", targetURL, err)
 	}
 }
