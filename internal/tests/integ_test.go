@@ -3,7 +3,6 @@ package main
 import (
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,47 +11,24 @@ import (
 	"time"
 
 	"caching-dev-proxy/internal/config"
-	"caching-dev-proxy/internal/proxy"
 )
 
 func TestProxyIntegration(t *testing.T) {
 	// Create a test upstream server
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message": "Hello from upstream", "path": "` + r.URL.Path + `"}`))
-	}))
+	upstream := fixture_upstream()
 	defer upstream.Close()
 
 	// Create temporary directory for cache
 	tempDir := t.TempDir()
 
 	// Create test config
-	cfg := &config.Config{
-		Server: config.ServerConfig{Port: 0}, // Will be set by test server
-		Cache: config.CacheConfig{
-			TTL:    "1h",
-			Folder: tempDir,
-		},
-		Rules: config.RulesConfig{
-			Mode: "whitelist",
-			Rules: []config.CacheRule{
-				{
-					BaseURI: upstream.URL,
-					Methods: []string{"GET"},
-				},
-			},
-		},
-	}
+	cfg := fixture_config(upstream.URL, tempDir, nil)
 
 	// Create proxy server
-	proxyServer, err := proxy.New(cfg)
+	_, proxyTestServer, err := fixture_proxy(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create proxy server: %v", err)
 	}
-
-	// Create test proxy HTTP server using goproxy
-	proxyTestServer := httptest.NewServer(proxyServer.GetProxy())
 	defer proxyTestServer.Close()
 
 	// Create HTTP client that uses our proxy
@@ -113,8 +89,75 @@ func TestProxyIntegration(t *testing.T) {
 		upstreamURL, _ := url.Parse(upstream.URL)
 		expectedCachePath := filepath.Join(tempDir, upstreamURL.Host, "test", "GET.bin")
 
-		if _, err := os.Stat(expectedCachePath); os.IsNotExist(err) {
+		if _, err := os.Stat(expectedCachePath); err != nil {
 			t.Errorf("Cache file should exist at %s", expectedCachePath)
+		}
+	})
+}
+
+func TestProxyIntegrationWithCustomRules(t *testing.T) {
+	// Create a test upstream server
+	upstream := fixture_upstream()
+	defer upstream.Close()
+
+	// Create temporary directory for cache
+	tempDir := t.TempDir()
+
+	// Create custom rules (blacklist mode)
+	customRules := &config.RulesConfig{
+		Mode: "blacklist",
+		Rules: []config.CacheRule{
+			{
+				BaseURI: "https://example.com",
+				Methods: []string{"GET"},
+			},
+		},
+	}
+
+	// Create test config with custom rules
+	cfg := fixture_config(upstream.URL, tempDir, customRules)
+
+	// Create proxy server
+	_, proxyTestServer, err := fixture_proxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy server: %v", err)
+	}
+	defer proxyTestServer.Close()
+
+	// Create HTTP client that uses our proxy
+	proxyURL, _ := url.Parse(proxyTestServer.URL)
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	// Test that requests are cached (since we're using blacklist mode and the upstream URL is not in the blacklist)
+	t.Run("request should be cached with blacklist rules", func(t *testing.T) {
+		resp, err := client.Get(upstream.URL + "/test")
+		if err != nil {
+			t.Fatalf("Request failed: %v", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", resp.StatusCode)
+		}
+
+		if resp.Header.Get("X-Cache") != "MISS" {
+			t.Errorf("Expected X-Cache: MISS, got %s", resp.Header.Get("X-Cache"))
+		}
+
+		// Second request should hit cache
+		resp2, err := client.Get(upstream.URL + "/test")
+		if err != nil {
+			t.Fatalf("Request failed: %v", err)
+		}
+		defer func() { _ = resp2.Body.Close() }()
+
+		if resp2.Header.Get("X-Cache") != "HIT" {
+			t.Errorf("Expected X-Cache: HIT, got %s", resp2.Header.Get("X-Cache"))
 		}
 	})
 }
