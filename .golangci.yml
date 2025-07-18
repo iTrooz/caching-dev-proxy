@@ -1,0 +1,11 @@
+version: "2"
+linters:
+  enable:
+    - errorlint
+    - staticcheck
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -ST1003
+        - -ST1000

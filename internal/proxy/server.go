@@ -145,7 +145,9 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 				logrus.Errorf("Failed to read response body: %v", err)
 				return resp
 			}
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				logrus.Errorf("Failed to close response body: %v", err)
+			}
 
 			// Create new response body
 			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))

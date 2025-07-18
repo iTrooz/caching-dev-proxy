@@ -1,3 +1,4 @@
+// Handles caching of HTTP responses
 package cache
 
 import (
@@ -69,7 +70,9 @@ func (m *Manager) Get(cachePath string) ([]byte, bool) {
 
 	if time.Since(info.ModTime()) > m.ttl {
 		// Cache expired, remove it
-		os.Remove(cachePath)
+		if err := os.Remove(cachePath); err != nil {
+			logrus.Errorf("Failed to remove expired cache file %s: %v", cachePath, err)
+		}
 		return nil, false
 	}
 

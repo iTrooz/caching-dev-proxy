@@ -37,7 +37,7 @@ type CacheConfig struct {
 	Folder string `yaml:"folder"`
 }
 
-// RulesConfig contains caching rules configuration
+// RulesMode represents the mode of rule evaluation (whitelist or blacklist)
 type RulesMode string
 
 const (
@@ -45,16 +45,16 @@ const (
 	RulesModeBlacklist RulesMode = "blacklist"
 )
 
+type LogConfig struct {
+	Level      string `yaml:"level"`
+	ThirdParty bool   `yaml:"third_party"`
+}
+
 type RulesConfig struct {
 	Mode  RulesMode   `yaml:"mode"` // "whitelist" or "blacklist"
 	Rules []CacheRule `yaml:"rules"`
 }
 
-// LogConfig contains logging configuration
-type LogConfig struct {
-	Level      string `yaml:"level"`
-	ThirdParty bool   `yaml:"third_party"`
-}
 
 // CacheRule defines a caching rule
 type CacheRule struct {
