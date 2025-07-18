@@ -10,10 +10,10 @@ import (
 
 // fixture_upstream creates a test upstream server
 func fixture_upstream() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, requ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message": "Hello from upstream", "path": "` + r.URL.Path + `"}`))
+		_, _ = w.Write([]byte(`{"message": "Hello from upstream", "path": "` + requ.URL.Path + `"}`))
 	}))
 }
 

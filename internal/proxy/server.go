@@ -205,14 +205,14 @@ func (s *Server) GetProxy() *goproxy.ProxyHttpServer {
 }
 
 // getCachedResponse returns a cached HTTP response if available
-func (s *Server) getCachedResponse(r *http.Request) *http.Response {
-	resp, err := s.cacheManager.Get(r)
+func (s *Server) getCachedResponse(requ *http.Request) *http.Response {
+	resp, err := s.cacheManager.Get(requ)
 	if err != nil {
-		logrus.Errorf("Failed to get cached data for %s: %v", r.URL, err)
+		logrus.Errorf("Failed to get cached data for %s: %v", requ.URL, err)
 		return nil
 	}
 	if resp == nil {
-		logrus.Debugf("No cached data found for %s", r.URL)
+		logrus.Debugf("No cached data found for %s", requ.URL)
 		return nil
 	}
 
@@ -222,37 +222,37 @@ func (s *Server) getCachedResponse(r *http.Request) *http.Response {
 }
 
 // HandleRequest handles HTTP requests (exported for testing)
-func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
-	s.handleRequest(w, r)
+func (s *Server) HandleRequest(w http.ResponseWriter, requ *http.Request) {
+	s.handleRequest(w, requ)
 }
 
-func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRequest(w http.ResponseWriter, requ *http.Request) {
 	// This method is kept for backward compatibility but is no longer used
 	// The goproxy handlers now handle all requests
-	logrus.Debugf("Legacy handleRequest called for: %s %s", r.Method, r.URL.String())
+	logrus.Debugf("Legacy handleRequest called for: %s %s", requ.Method, requ.URL.String())
 	http.Error(w, "This endpoint should not be called directly", http.StatusInternalServerError)
 }
 
 // isCached checks if we should attempt to serve from cache
-func (s *Server) isCached(r *http.Request) bool {
+func (s *Server) isCached(requ *http.Request) bool {
 	// Check if cached file exists and is not expired
-	data, err := s.cacheManager.Get(r)
+	data, err := s.cacheManager.Get(requ)
 	if err != nil {
-		logrus.Errorf("Failed to get cached data for %s: %v", r.URL, err)
+		logrus.Errorf("Failed to get cached data for %s: %v", requ.URL, err)
 		return false
 	}
 	if data != nil {
-		logrus.Debugf("Cache hit for %s", r.URL)
+		logrus.Debugf("Cache hit for %s", requ.URL)
 		return true
 	}
 	return false
 }
 
 // shouldBeCached determines if a response should be cached based on rules
-func (s *Server) shouldBeCached(r *http.Request, resp *http.Response) bool {
+func (s *Server) shouldBeCached(requ *http.Request, resp *http.Response) bool {
 	matched := false
 	for _, rule := range s.rules {
-		if rule.Match(r.URL.String(), r.Method, resp.StatusCode) {
+		if rule.Match(requ.URL.String(), requ.Method, resp.StatusCode) {
 			matched = true
 			break
 		}
@@ -266,8 +266,8 @@ func (s *Server) shouldBeCached(r *http.Request, resp *http.Response) bool {
 }
 
 // cacheResponse stores a response in the cache
-func (s *Server) cacheResponse(r *http.Request, resp *http.Response) {
-	if err := s.cacheManager.Set(r, resp); err != nil {
-		logrus.Errorf("Failed to cache response for %s: %v", r.URL.String(), err)
+func (s *Server) cacheResponse(requ *http.Request, resp *http.Response) {
+	if err := s.cacheManager.Set(requ, resp); err != nil {
+		logrus.Errorf("Failed to cache response for %s: %v", requ.URL.String(), err)
 	}
 }
