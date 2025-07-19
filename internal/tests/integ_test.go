@@ -118,9 +118,9 @@ func TestHitWithWhitelist(t *testing.T) {
 	upstream := fixture_upstream()
 	defer upstream.Close()
 
-	// Create config with whitelist rules
+	// Create config with whitelist rules that match our upstream URL
 	customRules := config.NewRulesConfig(config.RulesModeWhitelist,
-		config.NewCacheRule("https://example.com", "GET"),
+		config.NewCacheRule(upstream.URL, "GET"),
 	)
 	cfg := fixture_config(t.TempDir(), customRules)
 
