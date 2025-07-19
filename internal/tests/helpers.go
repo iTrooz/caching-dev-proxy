@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -10,6 +11,22 @@ import (
 	"caching-dev-proxy/internal/config"
 	"caching-dev-proxy/internal/proxy"
 )
+
+// readBodyAndClose reads the response body and closes it, panicking on any errors
+func readBodyAndClose(resp *http.Response) string {
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			panic(fmt.Sprintf("Failed to close response body: %v", err))
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read response body: %v", err))
+	}
+
+	return string(body)
+}
 
 // fixture_upstream creates a test upstream server
 func fixture_upstream() *httptest.Server {
