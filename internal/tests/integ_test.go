@@ -85,15 +85,16 @@ func TestHitWithBlacklist(t *testing.T) {
 	defer proxyTestServer.Close()
 
 	// Test that requests are cached (since we're using blacklist mode and the upstream URL is not in the blacklist)
-	t.Run("request should be cached with blacklist rules", func(t *testing.T) {
+	t.Run("first request - cache miss", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		require.NoError(t, err, "Request failed")
 		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
+	})
 
-		// Second request should hit cache
+	t.Run("second request - cache hit", func(t *testing.T) {
 		resp2, err := client.Get(upstream.URL + "/test")
 		require.NoError(t, err, "Request failed")
 		defer func() { _ = resp2.Body.Close() }()
@@ -124,15 +125,16 @@ func TestHitWithWhitelist(t *testing.T) {
 	defer proxyTestServer.Close()
 
 	// Test that requests are cached (since we're using whitelist mode and the upstream URL is in the whitelist)
-	t.Run("request should be cached with whitelist rules", func(t *testing.T) {
+	t.Run("first request - cache miss", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		require.NoError(t, err, "Request failed")
 		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
+	})
 
-		// Second request should hit cache
+	t.Run("second request - cache hit", func(t *testing.T) {
 		resp2, err := client.Get(upstream.URL + "/test")
 		require.NoError(t, err, "Request failed")
 		defer func() { _ = resp2.Body.Close() }()
