@@ -214,8 +214,13 @@ func (s *Server) GetProxy() *goproxy.ProxyHttpServer {
 // getCachedResponse returns a cached HTTP response if available
 func (s *Server) getCachedResponse(requ *http.Request) *http.Response {
 	resp, err := s.cacheManager.Get(requ)
+	// If cache lookup fails, only log as error if the request should be cached
 	if err != nil {
-		logrus.Errorf("Failed to get cached data for %s: %v", requ.URL, err)
+		if s.shouldBeCached(requ, nil) {
+			logrus.Errorf("Failed to get cached data for %s: %v", requ.URL, err)
+		} else {
+			logrus.Debugf("Cache not found for %s (caching disabled by rules)", requ.URL)
+		}
 		return nil
 	}
 	if resp == nil {

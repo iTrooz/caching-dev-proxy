@@ -24,6 +24,7 @@ func NewGenericDisk(cacheDir string, ttl time.Duration) GenericCache {
 }
 
 func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
+	logrus.Debugf("DiskCache::Get(%s)", cacheKey)
 	if cacheKey == "" {
 		return nil, fmt.Errorf("cache path cannot be empty")
 	}
@@ -32,10 +33,12 @@ func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
 	// Check if cache file exists and is not expired
 	info, err := os.Stat(fullPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			logrus.Debugf("DiskCache::Get(%s) = NotFound", cacheKey)
+		if os.IsNotExist(err) {
+			// Cache file does not exist: this is a cache miss, not an error
+			logrus.Debugf("DiskCache::Get(%s): Not found", cacheKey)
 			return nil, nil
 		}
+		logrus.Debugf("DiskCache::Get(%s): Error checking file: %v", cacheKey, err)
 		return nil, fmt.Errorf("cache file stat error for %s: %w", fullPath, err)
 	}
 
@@ -43,7 +46,7 @@ func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
 		// Cache expired, remove it
 		if err := os.Remove(fullPath); err != nil {
 			// Do not return error because removing an expired cache file is not critical for Get()
-			logrus.Errorf("Failed to remove expired cache file %s: %v", fullPath, err)
+			logrus.Warnf("Failed to remove expired cache file %s: %v", fullPath, err)
 		}
 		return nil, nil
 	}
@@ -51,9 +54,11 @@ func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
 	// Read cached response
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
+		logrus.Debugf("DiskCache::Get(%s): Failed to read cache file: %v", cacheKey, err)
 		return nil, fmt.Errorf("failed to read cache file '%s': %w", fullPath, err)
 	}
 
+	logrus.Debugf("DiskCache::Get(%s): Cache hit", cacheKey)
 	return data, nil
 }
 
