@@ -69,15 +69,9 @@ func TestHitWithBlacklist(t *testing.T) {
 	defer upstream.Close()
 
 	// Create config
-	customRules := &config.RulesConfig{
-		Mode: "blacklist",
-		Rules: []config.CacheRule{
-			{
-				BaseURI: "https://example.com",
-				Methods: []string{"GET"},
-			},
-		},
-	}
+	customRules := config.NewRulesConfig(config.RulesModeBlacklist,
+		config.NewCacheRule("https://example.com", "GET"),
+	)
 	cfg := fixture_config(t.TempDir(), customRules)
 
 	// Create proxy server
@@ -109,15 +103,9 @@ func TestHitWithWhitelist(t *testing.T) {
 	defer upstream.Close()
 
 	// Create config with whitelist rules
-	customRules := &config.RulesConfig{
-		Mode: "whitelist",
-		Rules: []config.CacheRule{
-			{
-				BaseURI: "https://example.com",
-				Methods: []string{"GET"},
-			},
-		},
-	}
+	customRules := config.NewRulesConfig(config.RulesModeWhitelist,
+		config.NewCacheRule("https://example.com", "GET"),
+	)
 	cfg := fixture_config(t.TempDir(), customRules)
 
 	// Create proxy server

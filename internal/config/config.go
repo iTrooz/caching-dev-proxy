@@ -55,7 +55,6 @@ type RulesConfig struct {
 	Rules []CacheRule `yaml:"rules"`
 }
 
-
 // CacheRule defines a caching rule
 type CacheRule struct {
 	BaseURI     string   `yaml:"base_uri"`
@@ -150,4 +149,20 @@ func MatchesStatusCode(statusCode int, pattern string) bool {
 	}
 
 	return false
+}
+
+// NewRulesConfig creates a new RulesConfig with the given mode and rules
+func NewRulesConfig(mode RulesMode, rules ...CacheRule) *RulesConfig {
+	return &RulesConfig{
+		Mode:  mode,
+		Rules: rules,
+	}
+}
+
+// NewCacheRule creates a new CacheRule with the given base URI and methods
+func NewCacheRule(baseURI string, methods ...string) CacheRule {
+	return CacheRule{
+		BaseURI: baseURI,
+		Methods: methods,
+	}
 }
