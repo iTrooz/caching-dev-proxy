@@ -163,7 +163,10 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 		if resp.Body != nil {
 			// Cache the response if it should be cached and it's not already a cache hit
 			isCacheHit := resp.Header.Get("X-Cache") == "HIT"
-			if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
+			shouldCache := s.shouldBeCached(ctx.Req, resp)
+
+			// Cache response if necessary
+			if !isCacheHit && shouldCache {
 				respCopy, err := copyResponse(resp)
 				if err != nil {
 					logrus.Errorf("Failed to copy response for caching: %v", err)
@@ -172,9 +175,13 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 				}
 			}
 
-			// Add cache header only if not already set (to avoid overwriting cache hits)
+			// Add cache information header
 			if resp.Header.Get("X-Cache") == "" {
-				resp.Header.Set("X-Cache", "MISS")
+				if shouldCache {
+					resp.Header.Set("X-Cache", "MISS")
+				} else {
+					resp.Header.Set("X-Cache", "DISABLED")
+				}
 			}
 
 			logrus.Infof("Forwarded request: %s %s -> %d", ctx.Req.Method, ctx.Req.URL.String(), resp.StatusCode)

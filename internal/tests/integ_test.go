@@ -158,3 +158,103 @@ func TestHitWithWhitelist(t *testing.T) {
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
 	})
 }
+
+func TestMissWithWhitelist(t *testing.T) {
+	// Create a test upstream server
+	upstream := fixture_upstream()
+	defer upstream.Close()
+
+	// Create config with whitelist rules that DON'T match our upstream URL
+	// This should result in requests NOT being cached
+	customRules := config.NewRulesConfig(config.RulesModeWhitelist,
+		config.NewCacheRule("https://example.com", "GET"), // Different URL than upstream
+	)
+	cfg := fixture_config(t.TempDir(), customRules)
+
+	// Create proxy server
+	_, proxyTestServer, client := fixture_proxy(cfg)
+	defer proxyTestServer.Close()
+
+	// Test that requests are NOT cached (since upstream URL is not in whitelist)
+	t.Run("first request - not cached", func(t *testing.T) {
+		resp, err := client.Get(upstream.URL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				panic(fmt.Sprintf("Failed to close response body: %v", err))
+			}
+		}()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Should have X-Cache: DISABLED since it's not being cached
+		assert.Equal(t, "DISABLED", resp.Header.Get("X-Cache"))
+	})
+
+	t.Run("second request - still not cached", func(t *testing.T) {
+		resp2, err := client.Get(upstream.URL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		defer func() {
+			if err := resp2.Body.Close(); err != nil {
+				panic(fmt.Sprintf("Failed to close response body: %v", err))
+			}
+		}()
+
+		assert.Equal(t, http.StatusOK, resp2.StatusCode)
+		// Should still have X-Cache: DISABLED since it's not being cached
+		assert.Equal(t, "DISABLED", resp2.Header.Get("X-Cache"))
+	})
+}
+
+func TestMissWithBlacklist(t *testing.T) {
+	// Create a test upstream server
+	upstream := fixture_upstream()
+	defer upstream.Close()
+
+	// Create config with blacklist rules that DO match our upstream URL
+	// This should result in requests NOT being cached
+	customRules := config.NewRulesConfig(config.RulesModeBlacklist,
+		config.NewCacheRule(upstream.URL, "GET"), // Same URL as upstream
+	)
+	cfg := fixture_config(t.TempDir(), customRules)
+
+	// Create proxy server
+	_, proxyTestServer, client := fixture_proxy(cfg)
+	defer proxyTestServer.Close()
+
+	// Test that requests are NOT cached (since upstream URL is in blacklist)
+	t.Run("first request - not cached", func(t *testing.T) {
+		resp, err := client.Get(upstream.URL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				panic(fmt.Sprintf("Failed to close response body: %v", err))
+			}
+		}()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Should have X-Cache: DISABLED since it's not being cached
+		assert.Equal(t, "DISABLED", resp.Header.Get("X-Cache"))
+	})
+
+	t.Run("second request - still not cached", func(t *testing.T) {
+		resp2, err := client.Get(upstream.URL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		defer func() {
+			if err := resp2.Body.Close(); err != nil {
+				panic(fmt.Sprintf("Failed to close response body: %v", err))
+			}
+		}()
+
+		assert.Equal(t, http.StatusOK, resp2.StatusCode)
+		// Should still have X-Cache: DISABLED since it's not being cached
+		assert.Equal(t, "DISABLED", resp2.Header.Get("X-Cache"))
+	})
+}
