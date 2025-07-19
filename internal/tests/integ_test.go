@@ -101,3 +101,42 @@ func TestHitWithBlacklist(t *testing.T) {
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
 	})
 }
+
+func TestHitWithWhitelist(t *testing.T) {
+	// Create a test upstream server
+	upstream := fixture_upstream()
+	defer upstream.Close()
+
+	// Create config with whitelist rules
+	customRules := &config.RulesConfig{
+		Mode: "whitelist",
+		Rules: []config.CacheRule{
+			{
+				BaseURI: "https://example.com",
+				Methods: []string{"GET"},
+			},
+		},
+	}
+	cfg := fixture_config(t.TempDir(), customRules)
+
+	// Create proxy server
+	_, proxyTestServer, client := fixture_proxy(cfg)
+	defer proxyTestServer.Close()
+
+	// Test that requests are cached (since we're using whitelist mode and the upstream URL is in the whitelist)
+	t.Run("request should be cached with whitelist rules", func(t *testing.T) {
+		resp, err := client.Get(upstream.URL + "/test")
+		require.NoError(t, err, "Request failed")
+		defer func() { _ = resp.Body.Close() }()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
+
+		// Second request should hit cache
+		resp2, err := client.Get(upstream.URL + "/test")
+		require.NoError(t, err, "Request failed")
+		defer func() { _ = resp2.Body.Close() }()
+
+		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
+	})
+}
