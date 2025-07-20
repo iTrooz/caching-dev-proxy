@@ -14,7 +14,7 @@ func TestLoad(t *testing.T) {
 
 	configContent := `
 server:
-  port: 9999
+  address: ":9999"
 cache:
   ttl: "30m"
   folder: "./test_cache"
@@ -39,8 +39,8 @@ rules:
 	}
 
 	// Verify values
-	if config.Server.Port != 9999 {
-		t.Errorf("Expected port 9999, got %d", config.Server.Port)
+	if config.Server.Address != ":9999" {
+		t.Errorf("Expected address :9999, got %v", config.Server.Address)
 	}
 
 	if config.Cache.TTL != "30m" {
@@ -69,7 +69,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid config",
 			config: Config{
-				Server: ServerConfig{Port: 8080},
+				Server: ServerConfig{Address: ":8080"},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
 				Log:    LogConfig{Level: "info"},
@@ -77,9 +77,9 @@ func TestValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "invalid port",
+			name: "invalid address",
 			config: Config{
-				Server: ServerConfig{Port: -1},
+				Server: ServerConfig{Address: "-1"},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
 			},
@@ -88,7 +88,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid TTL",
 			config: Config{
-				Server: ServerConfig{Port: 8080},
+				Server: ServerConfig{Address: ":8080"},
 				Cache:  CacheConfig{TTL: "invalid", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
 			},
@@ -97,7 +97,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid mode",
 			config: Config{
-				Server: ServerConfig{Port: 8080},
+				Server: ServerConfig{Address: ":8080"},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "invalid"},
 			},

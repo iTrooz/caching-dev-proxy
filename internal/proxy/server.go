@@ -204,7 +204,7 @@ func (s *Server) setupProxyHandlers() {
 
 // Start starts the proxy server
 func (s *Server) Start() error {
-	logrus.Infof("Starting caching proxy on port %d", s.config.Server.Port)
+	logrus.Infof("Starting caching proxy at %v", s.config.Server.Address)
 	logrus.Debugf("Cache directory: %s", s.config.Cache.Folder)
 	logrus.Debugf("Cache TTL: %s", s.config.Cache.TTL)
 	logrus.Debugf("Rules mode: %s", s.config.Rules.Mode)
@@ -214,7 +214,7 @@ func (s *Server) Start() error {
 		logrus.Debugf("TLS interception: disabled")
 	}
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", s.config.Server.Port), s.proxy)
+	return http.ListenAndServe(s.config.Server.Address, s.proxy)
 }
 
 // GetProxy returns the underlying goproxy instance for testing

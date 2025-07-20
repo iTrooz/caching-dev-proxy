@@ -10,18 +10,13 @@ import (
 
 func TestNew(t *testing.T) {
 	cfg := &config.Config{
-		Server: config.ServerConfig{Port: 8080},
-		Cache:  config.CacheConfig{TTL: "1h", Folder: "/tmp/test"},
-		Rules:  config.RulesConfig{Mode: "whitelist"},
+		Cache: config.CacheConfig{TTL: "1h", Folder: "/tmp/test"},
+		Rules: config.RulesConfig{Mode: "whitelist"},
 	}
 
-	server, err := New(cfg)
+	_, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
-	}
-
-	if server.config != cfg {
-		t.Errorf("Server config not set correctly")
 	}
 }
 

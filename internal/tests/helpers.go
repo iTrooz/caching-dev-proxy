@@ -92,7 +92,7 @@ func fixture_upstream_tls() *httptest.Server {
 func fixture_config(tempDir string, rules *config.RulesConfig) *config.Config {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
-			Port: 0,
+			Address: ":",
 			TLS: config.TLSConfig{
 				Enabled: true,
 			},

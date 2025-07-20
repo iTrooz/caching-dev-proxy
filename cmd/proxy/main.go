@@ -34,7 +34,7 @@ func setupLogrus(level string) {
 func main() {
 	// Parse CLI flags
 	configPathPtr := flag.String("config", "", "Configuration file path")
-	portPtr := flag.Int("p", 0, "Port to listen on (overrides config)")
+	addressPtr := flag.String("a", "", "Address to listen on (example: :8080)")
 	verbosePtr := flag.Bool("v", false, "Enable verbose (debug) logging, overrides config")
 	flag.Parse()
 
@@ -46,8 +46,8 @@ func main() {
 	}
 
 	// Handle CLI overrides
-	if *portPtr != 0 {
-		cfg.Server.Port = *portPtr
+	if *addressPtr != "" {
+		cfg.Server.Address = *addressPtr
 	}
 	if *verbosePtr {
 		cfg.Log.Level = "debug"

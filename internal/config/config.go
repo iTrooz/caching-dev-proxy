@@ -25,8 +25,8 @@ type Config struct {
 
 // ServerConfig contains server-related configuration
 type ServerConfig struct {
-	Port int       `koanf:"port"`
-	TLS  TLSConfig `koanf:"tls"`
+	Address string    `koanf:"address"`
+	TLS     TLSConfig `koanf:"tls"`
 }
 
 // TLSConfig contains TLS interception configuration
@@ -70,7 +70,7 @@ type CacheRule struct {
 // DefaultConfig holds the default configuration values
 var DefaultConfig = Config{
 	Server: ServerConfig{
-		Port: 8080,
+		Address: ":8080",
 		TLS: TLSConfig{
 			Enabled:    true,
 			CAKeyFile:  "",
@@ -123,10 +123,6 @@ func (c *Config) GetCacheTTL() (time.Duration, error) {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
-	if c.Server.Port <= 0 || c.Server.Port > 65535 {
-		return fmt.Errorf("invalid port: %d", c.Server.Port)
-	}
-
 	if _, err := c.GetCacheTTL(); err != nil {
 		return fmt.Errorf("invalid cache TTL format: %w", err)
 	}
