@@ -88,7 +88,6 @@ func resolveConfigPath(cliPath string) string {
 }
 
 func launchProxy(cfg *config.Config) {
-
 	server, err := proxy.New(cfg)
 	if err != nil {
 		logrus.Fatalf("Failed to create proxy server: %v", err)
