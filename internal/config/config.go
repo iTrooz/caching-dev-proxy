@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knadh/koanf/maps"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/structs"
@@ -18,29 +17,29 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server ServerConfig `yaml:"server"`
-	Cache  CacheConfig  `yaml:"cache"`
-	Rules  RulesConfig  `yaml:"rules"`
-	Log    LogConfig    `yaml:"log"`
+	Server ServerConfig `koanf:"server"`
+	Cache  CacheConfig  `koanf:"cache"`
+	Rules  RulesConfig  `koanf:"rules"`
+	Log    LogConfig    `koanf:"log"`
 }
 
 // ServerConfig contains server-related configuration
 type ServerConfig struct {
-	Port int       `yaml:"port"`
-	TLS  TLSConfig `yaml:"tls"`
+	Port int       `koanf:"port"`
+	TLS  TLSConfig `koanf:"tls"`
 }
 
 // TLSConfig contains TLS interception configuration
 type TLSConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	CAKeyFile  string `yaml:"ca_key_file"`
-	CACertFile string `yaml:"ca_cert_file"`
+	Enabled    bool   `koanf:"enabled"`
+	CAKeyFile  string `koanf:"ca_key_file"`
+	CACertFile string `koanf:"ca_cert_file"`
 }
 
 // CacheConfig contains cache-related configuration
 type CacheConfig struct {
-	TTL    string `yaml:"ttl"`
-	Folder string `yaml:"folder"`
+	TTL    string `koanf:"ttl"`
+	Folder string `koanf:"folder"`
 }
 
 // RulesMode represents the mode of rule evaluation (whitelist or blacklist)
@@ -52,20 +51,20 @@ const (
 )
 
 type LogConfig struct {
-	Level      string `yaml:"level"`
-	ThirdParty bool   `yaml:"third_party"`
+	Level      string `koanf:"level"`
+	ThirdParty bool   `koanf:"third_party"`
 }
 
 type RulesConfig struct {
-	Mode  RulesMode   `yaml:"mode"` // "whitelist" or "blacklist"
-	Rules []CacheRule `yaml:"rules"`
+	Mode  RulesMode   `koanf:"mode"` // "whitelist" or "blacklist"
+	Rules []CacheRule `koanf:"rules"`
 }
 
 // CacheRule defines a caching rule
 type CacheRule struct {
-	BaseURI     string   `yaml:"base_uri"`
-	Methods     []string `yaml:"methods"`
-	StatusCodes []string `yaml:"status_codes,omitempty"` // e.g., ["200", "404", "4xx", "5xx"]
+	BaseURI     string   `koanf:"base_uri"`
+	Methods     []string `koanf:"methods"`
+	StatusCodes []string `koanf:"status_codes,omitempty"` // e.g., ["200", "404", "4xx", "5xx"]
 }
 
 // DefaultConfig holds the default configuration values
@@ -92,48 +91,12 @@ var DefaultConfig = Config{
 	},
 }
 
-type TransformFunc func(string, any) (*string, *any)
-
-func transformMap(transformFunc TransformFunc, m map[string]any) {
-	for k, v := range m {
-		nk, nv := transformFunc(k, v)
-		if nk != nil && nv != nil {
-			delete(m, k)
-			m[*nk] = nv
-		} else if nk != nil && nv == nil {
-			delete(m, k)
-			m[*nk] = v
-		} else if nk == nil && nv != nil {
-			m[k] = nv
-		}
-
-		if subMap, ok := v.(map[string]any); ok {
-			transformMap(transformFunc, subMap)
-		}
-	}
-}
-
-func WithTransformFunc(transformFunc TransformFunc) koanf.Option {
-	return koanf.WithMergeFunc(func(src, dest map[string]interface{}) error {
-		transformMap(transformFunc, src)
-
-		return maps.MergeStrict(src, dest)
-	})
-}
-
-func ToLowercase() koanf.Option {
-	return WithTransformFunc(func(s string, a any) (*string, *any) {
-		lowered := strings.ToLower(s)
-		return &lowered, nil
-	})
-}
-
 // Load loads configuration from a YAML file using koanf
 func Load(path string) (*Config, error) {
 	k := koanf.New(":")
 
 	// Load defaults from DefaultConfig
-	if err := k.Load(structs.Provider(DefaultConfig, "."), nil, ToLowercase()); err != nil {
+	if err := k.Load(structs.Provider(DefaultConfig, "koanf"), nil); err != nil {
 		return nil, fmt.Errorf("loading defaults: %w", err)
 	}
 
