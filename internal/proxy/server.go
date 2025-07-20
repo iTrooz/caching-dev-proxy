@@ -186,7 +186,11 @@ func (s *Server) setupProxyHandlers() {
 
 			// Add cache information header only if not already set (to avoid overwriting cache hits)
 			if resp.Header.Get("X-Cache") == "" {
-				resp.Header.Set("X-Cache", "MISS")
+				if !s.shouldBeCached(ctx.Req, resp) {
+					resp.Header.Set("X-Cache", "DISABLED")
+				} else {
+					resp.Header.Set("X-Cache", "MISS")
+				}
 			}
 
 			logrus.Infof("Forwarded request: %s %s -> %d", ctx.Req.Method, ctx.Req.URL.String(), resp.StatusCode)
