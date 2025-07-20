@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -35,13 +34,13 @@ func TestSimpleHit(t *testing.T) {
 	t.Run("first request - cache miss", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
 
-		body := readBodyAndClose(resp)
+		body := helper_readBodyAndClose(resp)
 		assert.Contains(t, body, "Hello from upstream")
 	})
 
@@ -49,13 +48,13 @@ func TestSimpleHit(t *testing.T) {
 	t.Run("second request - cache hit", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "HIT", resp.Header.Get("X-Cache"))
 
-		body := readBodyAndClose(resp)
+		body := helper_readBodyAndClose(resp)
 		assert.Contains(t, body, "Hello from upstream")
 	})
 
@@ -63,7 +62,7 @@ func TestSimpleHit(t *testing.T) {
 	t.Run("verify cache file exists", func(t *testing.T) {
 		upstreamURL, err := url.Parse(upstream.URL)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to parse upstream URL: %v", err))
+			panic(err)
 		}
 		expectedCachePath := filepath.Join(tempDir, upstreamURL.Host, "test", "GET.bin")
 
@@ -92,13 +91,9 @@ func TestHitWithBlacklist(t *testing.T) {
 	t.Run("first request - cache miss", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
@@ -107,13 +102,9 @@ func TestHitWithBlacklist(t *testing.T) {
 	t.Run("second request - cache hit", func(t *testing.T) {
 		resp2, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp2.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp2)
 
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
 	})
@@ -139,13 +130,9 @@ func TestHitWithWhitelist(t *testing.T) {
 	t.Run("first request - cache miss", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
@@ -154,13 +141,9 @@ func TestHitWithWhitelist(t *testing.T) {
 	t.Run("second request - cache hit", func(t *testing.T) {
 		resp2, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp2.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp2)
 
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
 	})
@@ -187,13 +170,9 @@ func TestMissWithWhitelist(t *testing.T) {
 	t.Run("first request - not cached", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		// Should have X-Cache: DISABLED since it's not being cached
@@ -203,13 +182,9 @@ func TestMissWithWhitelist(t *testing.T) {
 	t.Run("second request - still not cached", func(t *testing.T) {
 		resp2, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp2.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp2)
 
 		assert.Equal(t, http.StatusOK, resp2.StatusCode)
 		// Should still have X-Cache: DISABLED since it's not being cached
@@ -238,13 +213,9 @@ func TestMissWithBlacklist(t *testing.T) {
 	t.Run("first request - not cached", func(t *testing.T) {
 		resp, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		// Should have X-Cache: DISABLED since it's not being cached
@@ -254,13 +225,9 @@ func TestMissWithBlacklist(t *testing.T) {
 	t.Run("second request - still not cached", func(t *testing.T) {
 		resp2, err := client.Get(upstream.URL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		defer func() {
-			if err := resp2.Body.Close(); err != nil {
-				panic(fmt.Sprintf("Failed to close response body: %v", err))
-			}
-		}()
+		helper_readBodyAndClose(resp2)
 
 		assert.Equal(t, http.StatusOK, resp2.StatusCode)
 		// Should still have X-Cache: DISABLED since it's not being cached
@@ -280,7 +247,7 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 
 	proxyURL, err := url.Parse(proxyTestServer.URL)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse proxy server URL: %v", err))
+		panic(err)
 	}
 	client.Transport = &http.Transport{
 		Proxy: http.ProxyURL(proxyURL),
@@ -290,9 +257,9 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 	t.Run("cache miss - upstream connection", func(t *testing.T) {
 		resp, err := client.Get(upstreamURL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		readBodyAndClose(resp)
+		helper_readBodyAndClose(resp)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
 	})
 
@@ -305,9 +272,9 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 	t.Run("cache hit - no upstream connection", func(t *testing.T) {
 		resp2, err := client.Get(upstreamURL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		_ = resp2.Body.Close()
+		helper_readBodyAndClose(resp2)
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
 
 		connCount := closeTcp()
@@ -330,9 +297,9 @@ func TestNoUpstreamConnectionOnCacheHitHTTPS(t *testing.T) {
 	t.Run("cache miss - upstream connection", func(t *testing.T) {
 		resp, err := client.Get(upstreamURL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
-		readBodyAndClose(resp)
+		helper_readBodyAndClose(resp)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
 	})
 
@@ -345,7 +312,7 @@ func TestNoUpstreamConnectionOnCacheHitHTTPS(t *testing.T) {
 	t.Run("cache hit - no upstream connection", func(t *testing.T) {
 		resp2, err := client.Get(upstreamURL + "/test")
 		if err != nil {
-			panic(fmt.Sprintf("Request failed: %v", err))
+			panic(err)
 		}
 		_ = resp2.Body.Close()
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))

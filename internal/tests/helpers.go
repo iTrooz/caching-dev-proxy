@@ -18,8 +18,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// readBodyAndClose reads the response body and closes it, panicking on any errors
-func readBodyAndClose(resp *http.Response) string {
+// helper_readBodyAndClose reads the response body and closes it, panicking on any errors
+func helper_readBodyAndClose(resp *http.Response) string {
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			panic(fmt.Sprintf("Failed to close response body: %v", err))
