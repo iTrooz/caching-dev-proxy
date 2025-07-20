@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"caching-dev-proxy/internal/config"
@@ -282,11 +283,11 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 		if err != nil {
 			panic(fmt.Sprintf("Request failed: %v", err))
 		}
-		_ = resp.Body.Close()
+		readBodyAndClose(resp)
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
-		upstream.Close() // Close after first request
 	})
 
+	upstream.Close() // Close after first request
 	// Second: setup raw TCP server for cache hit
 	parsedURL, _ := url.Parse(upstreamURL)
 	connCount := 0
@@ -299,6 +300,7 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 		for {
 			conn, err := tcpLn.Accept()
 			if err != nil {
+				logrus.Warnf("TCP listener closed unexpectedly: %v", err)
 				return // Listener closed
 			}
 			connCount++
