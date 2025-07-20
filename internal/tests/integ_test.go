@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -262,13 +261,8 @@ func TestMissWithBlacklist(t *testing.T) {
 }
 
 func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
-	// First: setup HTTP web server for cache miss
-	webServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message": "Hello from upstream", "path": "` + r.URL.Path + `"}`))
-	}))
-	upstreamURL := webServer.URL
+	upstream := fixture_upstream()
+	upstreamURL := upstream.URL
 
 	cfg := fixture_config(t.TempDir(), nil)
 	_, proxyTestServer, client := fixture_proxy(cfg)
@@ -290,7 +284,7 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 		}
 		_ = resp.Body.Close()
 		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
-		webServer.Close() // Close after first request
+		upstream.Close() // Close after first request
 	})
 
 	// Second: setup raw TCP server for cache hit
