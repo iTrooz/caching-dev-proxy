@@ -203,13 +203,13 @@ func (s *Server) setupProxyHandlers() {
 // Start starts the proxy server
 func (s *Server) Start() error {
 	logrus.Infof("Starting caching proxy on port %d", s.config.Server.Port)
-	logrus.Infof("Cache directory: %s", s.config.Cache.Folder)
-	logrus.Infof("Cache TTL: %s", s.config.Cache.TTL)
-	logrus.Infof("Rules mode: %s", s.config.Rules.Mode)
+	logrus.Debugf("Cache directory: %s", s.config.Cache.Folder)
+	logrus.Debugf("Cache TTL: %s", s.config.Cache.TTL)
+	logrus.Debugf("Rules mode: %s", s.config.Rules.Mode)
 	if s.config.Server.SSLBumping.Enabled {
-		logrus.Infof("SSL bumping: enabled with CA certificate: %s", s.config.Server.SSLBumping.CACertFile)
+		logrus.Debugf("SSL bumping: enabled with CA certificate: %s", s.config.Server.SSLBumping.CACertFile)
 	} else {
-		logrus.Infof("SSL bumping: disabled")
+		logrus.Debugf("SSL bumping: disabled")
 	}
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", s.config.Server.Port), s.proxy)
