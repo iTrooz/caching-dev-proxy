@@ -105,6 +105,7 @@ func copyResponse(resp *http.Response) (*http.Response, error) {
 
 func loadCertificate(cfg *config.Config) (*tls.Certificate, error) {
 	if cfg.Server.TLS.CACertFile == "" || cfg.Server.TLS.CAKeyFile == "" {
+		logrus.Debugf("No CA certificate configured, using goproxy default certificate")
 		return nil, nil // Use default goproxy certificate
 	}
 
@@ -112,6 +113,7 @@ func loadCertificate(cfg *config.Config) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CA certificate and key: %w", err)
 	}
+	logrus.Debugf("Loaded CA certificate from %s", cfg.Server.TLS.CACertFile)
 	return &cert, nil
 }
 
