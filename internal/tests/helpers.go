@@ -93,7 +93,7 @@ func fixture_config(tempDir string, rules *config.RulesConfig) *config.Config {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Port: 0,
-			SSLBumping: config.SSLConfig{
+			TLS: config.TLSConfig{
 				Enabled: true,
 			},
 		},

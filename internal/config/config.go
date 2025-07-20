@@ -26,12 +26,12 @@ type Config struct {
 
 // ServerConfig contains server-related configuration
 type ServerConfig struct {
-	Port       int       `yaml:"port"`
-	SSLBumping SSLConfig `yaml:"ssl_bumping"`
+	Port int       `yaml:"port"`
+	TLS  TLSConfig `yaml:"tls"`
 }
 
-// SSLConfig contains SSL bumping configuration
-type SSLConfig struct {
+// TLSConfig contains TLS interception configuration
+type TLSConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	CAKeyFile  string `yaml:"ca_key_file"`
 	CACertFile string `yaml:"ca_cert_file"`
@@ -72,7 +72,7 @@ type CacheRule struct {
 var DefaultConfig = Config{
 	Server: ServerConfig{
 		Port: 8080,
-		SSLBumping: SSLConfig{
+		TLS: TLSConfig{
 			Enabled:    true,
 			CAKeyFile:  "",
 			CACertFile: "",
