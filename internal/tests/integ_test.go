@@ -15,6 +15,10 @@ import (
 	"caching-dev-proxy/internal/config"
 )
 
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+}
+
 func TestSimpleHit(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
