@@ -38,6 +38,11 @@ func main() {
 	verbosePtr := flag.Bool("v", false, "Enable verbose (debug) logging, overrides config")
 	flag.Parse()
 
+	// Set log level from CLI for setup logging (will be overriden later)
+	if *verbosePtr {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 	// Load config
 	configPath := resolveConfigPath(*configPathPtr)
 	cfg, err := config.Load(configPath)
