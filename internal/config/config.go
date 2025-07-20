@@ -101,7 +101,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	// Load YAML file if present
-	logrus.Infof("Loading config from %s", path)
+	logrus.Debugf("Loading config from %s", path)
 	if _, err := os.Stat(path); err == nil {
 		if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
 			return nil, fmt.Errorf("loading config file: %w", err)
