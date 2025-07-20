@@ -86,6 +86,6 @@ func (d *HTTPCache) Get(key *http.Request) (*http.Response, error) {
 		Request:    key,
 	}
 
-	logrus.Infof("Cache hit for %s %s", key.Method, key.URL.String())
+	logrus.Debugf("Cache hit for %s %s", key.Method, key.URL.String())
 	return resp, nil
 }
