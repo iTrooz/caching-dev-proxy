@@ -7,8 +7,8 @@ build:
 run *args:
 	go run ./cmd/proxy {{args}}
 
-test:
-	go test ./...
+test *args:
+	go test ./... {{args}}
 
 clean:
 	rm -rf cache/ caching-dev-proxy

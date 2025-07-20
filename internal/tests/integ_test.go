@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -310,8 +311,13 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 		for {
 			conn, err := tcpLn.Accept()
 			if err != nil {
-				logrus.Warnf("TCP listener closed unexpectedly: %v", err)
-				return // Listener closed
+				// Listener is closed
+				if errors.Is(err, net.ErrClosed) {
+					return
+				} else {
+					logrus.Warnf("TCP listener closed unexpectedly: %v", err)
+					continue
+				}
 			}
 			connCount++
 			_ = conn.Close()
