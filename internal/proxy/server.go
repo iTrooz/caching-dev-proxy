@@ -157,7 +157,7 @@ func (s *Server) setupProxyHandlers() {
 		// Check if we have a cached response
 		if s.isCached(req) {
 			if cachedResp := s.getCachedResponse(req); cachedResp != nil {
-				logrus.Infof("Serving from cache: %s", req.URL.String())
+				logrus.Debugf("OnRequest(%s): Serving from cache", req.URL.String())
 				return req, cachedResp
 			}
 		}
@@ -195,7 +195,7 @@ func (s *Server) setupProxyHandlers() {
 				}
 			}
 
-			logrus.Infof("Forwarded request: %s %s -> %d", ctx.Req.Method, ctx.Req.URL.String(), resp.StatusCode)
+			logrus.Infof("%v %v <- %v %v", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String())
 		}
 
 		return resp
