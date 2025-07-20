@@ -29,7 +29,8 @@ func (d *HTTPCache) getKey(request *http.Request) (string, error) {
 	queryHash := hex.EncodeToString(hash[:])[:8]
 
 	// Build path: /cache_folder/host/path/METHOD[_queryhash].bin
-	pathParts := []string{request.URL.Host}
+	host := strings.TrimSuffix(strings.TrimSuffix(request.URL.Host, ":80"), ":443")
+	pathParts := []string{host}
 
 	if request.URL.Path != "" && request.URL.Path != "/" {
 		pathParts = append(pathParts, strings.Trim(request.URL.Path, "/"))
