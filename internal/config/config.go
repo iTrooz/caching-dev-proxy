@@ -149,7 +149,6 @@ func Load(path string) (*Config, error) {
 	if err := k.Unmarshal("", &config); err != nil {
 		return nil, fmt.Errorf("unmarshalling config: %w", err)
 	}
-	fmt.Printf("Config Port: %v\n", config.Server.Port)
 
 	return &config, nil
 }
@@ -199,7 +198,6 @@ func MatchesStatusCode(statusCode int, pattern string) bool {
 	return false
 }
 
-// NewRulesConfig creates a new RulesConfig with the given mode and rules
 func NewRulesConfig(mode RulesMode, rules ...CacheRule) *RulesConfig {
 	return &RulesConfig{
 		Mode:  mode,
@@ -207,7 +205,6 @@ func NewRulesConfig(mode RulesMode, rules ...CacheRule) *RulesConfig {
 	}
 }
 
-// NewCacheRule creates a new CacheRule with the given base URI and methods
 func NewCacheRule(baseURI string, methods ...string) CacheRule {
 	return CacheRule{
 		BaseURI: baseURI,
