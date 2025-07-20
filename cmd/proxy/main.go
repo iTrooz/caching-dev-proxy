@@ -2,32 +2,22 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	"caching-dev-proxy/internal/config"
 	"caching-dev-proxy/internal/proxy"
+
 	"github.com/sirupsen/logrus"
 )
 
-func main() {
-	var configPath = flag.String("config", "config.yaml", "Configuration file path")
-	
-	flag.Parse()
-
-	cfg, err := config.Load(*configPath)
-	if err != nil {
-		logrus.Fatalf("Failed to load config: %v", err)
-	}
-
-	if err := cfg.Validate(); err != nil {
-		logrus.Fatalf("Invalid configuration: %v", err)
-	}
-
-	// Setup logrus based on config
+func setupLogrus(level string) {
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
-	
-	switch cfg.Log.Level {
+
+	switch level {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)
 	case "info":
@@ -39,6 +29,65 @@ func main() {
 	default:
 		logrus.SetLevel(logrus.InfoLevel)
 	}
+}
+
+func main() {
+	// Parse CLI flags
+	configPathPtr := flag.String("config", "", "Configuration file path")
+	portPtr := flag.Int("p", 0, "Port to listen on (overrides config)")
+	verbosePtr := flag.Bool("v", false, "Enable verbose (debug) logging, overrides config")
+	flag.Parse()
+
+	// Load config
+	configPath := resolveConfigPath(*configPathPtr)
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		logrus.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Handle CLI overrides
+	if *portPtr != 0 {
+		cfg.Server.Port = *portPtr
+	}
+	if *verbosePtr {
+		cfg.Log.Level = "debug"
+	}
+
+	// Validate config
+	if err := cfg.Validate(); err != nil {
+		logrus.Fatalf("Invalid configuration: %v", err)
+	}
+
+	// Setup logging
+	setupLogrus(cfg.Log.Level)
+
+	// Launch proxy
+	launchProxy(cfg)
+}
+
+func resolveConfigPath(cliPath string) string {
+	if cliPath != "" {
+		return cliPath
+	}
+
+	if envPath := os.Getenv("APP_CONFIG"); envPath != "" {
+		return envPath
+	}
+
+	home := os.Getenv("HOME")
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	var base string
+	if xdg != "" {
+		base = xdg
+	} else if home != "" {
+		base = filepath.Join(home, ".config")
+	} else {
+		base = fmt.Sprintf("/home/%s/.config", os.Getenv("USER"))
+	}
+	return filepath.Join(base, "caching-dev-proxy", "config.yaml")
+}
+
+func launchProxy(cfg *config.Config) {
 
 	server, err := proxy.New(cfg)
 	if err != nil {
