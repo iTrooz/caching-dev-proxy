@@ -325,3 +325,56 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 		}
 	})
 }
+
+func TestNoUpstreamConnectionOnCacheHitHTTPS(t *testing.T) {
+	upstream := fixture_upstream_tls()
+	upstreamURL := upstream.URL
+
+	cfg := fixture_config(t.TempDir(), nil)
+	_, proxyTestServer, client := fixture_proxy(cfg)
+	defer proxyTestServer.Close()
+
+	// First request: should hit upstream and cache
+	t.Run("cache miss - upstream connection", func(t *testing.T) {
+		resp, err := client.Get(upstreamURL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		readBodyAndClose(resp)
+		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
+	})
+
+	upstream.Close() // Close after first request
+	// Second: setup raw TCP server for cache hit
+	parsedURL, _ := url.Parse(upstreamURL)
+	connCount := 0
+	tcpLn, err := net.Listen("tcp", parsedURL.Host)
+	if err != nil {
+		t.Fatalf("Failed to start raw TCP listener: %v", err)
+	}
+	defer func() { _ = tcpLn.Close() }()
+	go func() {
+		for {
+			conn, err := tcpLn.Accept()
+			if err != nil {
+				logrus.Warnf("TCP listener closed unexpectedly: %v", err)
+				return // Listener closed
+			}
+			connCount++
+			_ = conn.Close()
+		}
+	}()
+
+	// Second request: should hit cache, no upstream connection
+	t.Run("cache hit - no upstream connection", func(t *testing.T) {
+		resp2, err := client.Get(upstreamURL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		_ = resp2.Body.Close()
+		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
+		if connCount != 0 {
+			t.Fatalf("Expected no TCP connection to upstream on cache hit, got %d", connCount)
+		}
+	})
+}

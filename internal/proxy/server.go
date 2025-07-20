@@ -83,18 +83,8 @@ func New(cfg *config.Config) (*Server, error) {
 		rules:        rules,
 	}
 
-	// Load CA certificate if SSL bumping is enabled
-	var caCert *tls.Certificate
-	if cfg.Server.SSLBumping.Enabled {
-		cert, err := tls.LoadX509KeyPair(cfg.Server.SSLBumping.CACertFile, cfg.Server.SSLBumping.CAKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load CA certificate and key: %w", err)
-		}
-		caCert = &cert
-	}
-
 	// Configure goproxy handlers
-	server.setupProxyHandlers(caCert)
+	server.setupProxyHandlers()
 
 	return server, nil
 }
@@ -113,10 +103,31 @@ func copyResponse(resp *http.Response) (*http.Response, error) {
 	return &respCopy, nil
 }
 
+func loadCertificate(cfg *config.Config) (*tls.Certificate, error) {
+	if cfg.Server.SSLBumping.CACertFile == "" || cfg.Server.SSLBumping.CAKeyFile == "" {
+		return nil, nil // Use default goproxy certificate
+	}
+
+	cert, err := tls.LoadX509KeyPair(cfg.Server.SSLBumping.CACertFile, cfg.Server.SSLBumping.CAKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load CA certificate and key: %w", err)
+	}
+	return &cert, nil
+}
+
 // setupProxyHandlers configures the goproxy handlers
-func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
+func (s *Server) setupProxyHandlers() {
 	// Handle CONNECT requests (HTTPS tunneling)
+	logrus.Debugf("SSL bumping enabled: %v", s.config.Server.SSLBumping.Enabled)
 	if s.config.Server.SSLBumping.Enabled {
+
+		// Load CA certificate
+		caCert, err := loadCertificate(s.config)
+		if err != nil {
+			logrus.Errorf("Failed to load CA certificate: %v", err)
+			return
+		}
+
 		if caCert == nil {
 			// Use goproxy's default certificate
 			logrus.Warnf("SSL bumping enabled but no CA certificate loaded, using goproxy default certificate")
@@ -128,6 +139,7 @@ func (s *Server) setupProxyHandlers(caCert *tls.Certificate) {
 				TLSConfig: goproxy.TLSConfigFromCA(caCert),
 			}
 			customAlwaysMitm := goproxy.FuncHttpsHandler(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+				logrus.Debugf("Handling CONNECT request for %s", host)
 				return customCaMitm, host
 			})
 			s.proxy.OnRequest().HandleConnect(customAlwaysMitm)

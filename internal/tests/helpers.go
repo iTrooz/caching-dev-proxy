@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,10 +38,25 @@ func fixture_upstream() *httptest.Server {
 	}))
 }
 
+func fixture_upstream_tls() *httptest.Server {
+	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if _, err := fmt.Fprintf(w, `{"message": "Hello from upstream", "path": "%s"}`, r.URL.Path); err != nil {
+			panic(fmt.Sprintf("Failed to write response: %v", err))
+		}
+	}))
+}
+
 // fixture_config creates a test config with optional rules
 func fixture_config(tempDir string, rules *config.RulesConfig) *config.Config {
 	cfg := &config.Config{
-		Server: config.ServerConfig{Port: 0}, // Will be set by test server
+		Server: config.ServerConfig{
+			Port: 0,
+			SSLBumping: config.SSLConfig{
+				Enabled: true,
+			},
+		},
 		Cache: config.CacheConfig{
 			TTL:    "1h",
 			Folder: tempDir,
@@ -68,7 +84,8 @@ func fixture_proxy(cfg *config.Config) (*proxy.Server, *httptest.Server, *http.C
 	proxyURL, _ := url.Parse(proxyTestServer.URL)
 	client := &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
+			Proxy:           http.ProxyURL(proxyURL),
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // For testing HTTPS
 		},
 		Timeout: 10 * time.Second,
 	}
