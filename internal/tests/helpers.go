@@ -39,7 +39,6 @@ func fixture_tcp_upstream(t *testing.T, address string) func() int {
 	if err != nil {
 		t.Fatalf("Failed to start raw TCP listener: %v", err)
 	}
-	defer func() { _ = tcpLn.Close() }()
 
 	connCount := 0
 	go func() {
@@ -55,13 +54,15 @@ func fixture_tcp_upstream(t *testing.T, address string) func() int {
 				}
 			}
 			connCount++
-			_ = conn.Close()
+			if err := conn.Close(); err != nil {
+				panic(err)
+			}
 		}
 	}()
 
 	return func() int {
 		err := tcpLn.Close()
-		if err != nil && !errors.Is(err, net.ErrClosed) {
+		if err != nil {
 			panic(err)
 		}
 		return connCount
