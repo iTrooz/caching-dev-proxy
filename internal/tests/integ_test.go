@@ -73,6 +73,7 @@ func TestSimpleHit(t *testing.T) {
 	})
 }
 
+// Host is not in blacklist, should return MISS/HIT
 func TestHitWithBlacklist(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
@@ -119,6 +120,7 @@ func TestHitWithBlacklist(t *testing.T) {
 	})
 }
 
+// Host is in whitelist, should return MISS/HIT
 func TestHitWithWhitelist(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
@@ -165,6 +167,7 @@ func TestHitWithWhitelist(t *testing.T) {
 	})
 }
 
+// Host is not in whitelist, should return DISABLED
 func TestMissWithWhitelist(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
@@ -215,6 +218,7 @@ func TestMissWithWhitelist(t *testing.T) {
 	})
 }
 
+// Host is in blacklist, should return DISABLED
 func TestMissWithBlacklist(t *testing.T) {
 	// Create a test upstream server
 	upstream := fixture_upstream()
@@ -265,6 +269,8 @@ func TestMissWithBlacklist(t *testing.T) {
 	})
 }
 
+// Test that upstream gets no connection at all when cache hit occurs
+// (Unlike squid, which will initialize a TCP connection to upstream even on requests with cache hits)
 func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 	upstream := fixture_upstream()
 	upstreamURL := upstream.URL
@@ -326,6 +332,7 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 	})
 }
 
+// Same as above, but for HTTPS requests
 func TestNoUpstreamConnectionOnCacheHitHTTPS(t *testing.T) {
 	upstream := fixture_upstream_tls()
 	upstreamURL := upstream.URL
