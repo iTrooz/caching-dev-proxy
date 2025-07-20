@@ -2,15 +2,20 @@ package tests
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 	"time"
 
 	"caching-dev-proxy/internal/config"
 	"caching-dev-proxy/internal/proxy"
+
+	"github.com/sirupsen/logrus"
 )
 
 // readBodyAndClose reads the response body and closes it, panicking on any errors
@@ -27,6 +32,40 @@ func readBodyAndClose(resp *http.Response) string {
 	}
 
 	return string(body)
+}
+
+func fixture_tcp_upstream(t *testing.T, address string) func() int {
+	tcpLn, err := net.Listen("tcp", address)
+	if err != nil {
+		t.Fatalf("Failed to start raw TCP listener: %v", err)
+	}
+	defer func() { _ = tcpLn.Close() }()
+
+	connCount := 0
+	go func() {
+		for {
+			conn, err := tcpLn.Accept()
+			if err != nil {
+				// Listener is closed
+				if errors.Is(err, net.ErrClosed) {
+					break
+				} else {
+					logrus.Warnf("TCP listener closed unexpectedly: %v", err)
+					continue
+				}
+			}
+			connCount++
+			_ = conn.Close()
+		}
+	}()
+
+	return func() int {
+		err := tcpLn.Close()
+		if err != nil {
+			panic(err)
+		}
+		return connCount
+	}
 }
 
 // fixture_upstream creates a test upstream server

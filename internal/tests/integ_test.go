@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -301,28 +300,7 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 	upstream.Close() // Close after first request
 	// Second: setup raw TCP server for cache hit
 	parsedURL, _ := url.Parse(upstreamURL)
-	connCount := 0
-	tcpLn, err := net.Listen("tcp", parsedURL.Host)
-	if err != nil {
-		t.Fatalf("Failed to start raw TCP listener: %v", err)
-	}
-	defer func() { _ = tcpLn.Close() }()
-	go func() {
-		for {
-			conn, err := tcpLn.Accept()
-			if err != nil {
-				// Listener is closed
-				if errors.Is(err, net.ErrClosed) {
-					return
-				} else {
-					logrus.Warnf("TCP listener closed unexpectedly: %v", err)
-					continue
-				}
-			}
-			connCount++
-			_ = conn.Close()
-		}
-	}()
+	closeTcp := fixture_tcp_upstream(t, parsedURL.Host)
 
 	// Second request: should hit cache, no upstream connection
 	t.Run("cache hit - no upstream connection", func(t *testing.T) {
@@ -332,6 +310,8 @@ func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
 		}
 		_ = resp2.Body.Close()
 		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
+
+		connCount := closeTcp()
 		if connCount != 0 {
 			t.Fatalf("Expected no TCP connection to upstream on cache hit, got %d", connCount)
 		}
