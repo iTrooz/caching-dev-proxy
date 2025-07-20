@@ -2,7 +2,9 @@ package tests
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -256,5 +258,70 @@ func TestMissWithBlacklist(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp2.StatusCode)
 		// Should still have X-Cache: DISABLED since it's not being cached
 		assert.Equal(t, "DISABLED", resp2.Header.Get("X-Cache"))
+	})
+}
+
+func TestNoUpstreamConnectionOnCacheHitHTTP(t *testing.T) {
+	// First: setup HTTP web server for cache miss
+	webServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message": "Hello from upstream", "path": "` + r.URL.Path + `"}`))
+	}))
+	upstreamURL := webServer.URL
+
+	cfg := fixture_config(t.TempDir(), nil)
+	_, proxyTestServer, client := fixture_proxy(cfg)
+	defer proxyTestServer.Close()
+
+	proxyURL, err := url.Parse(proxyTestServer.URL)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to parse proxy server URL: %v", err))
+	}
+	client.Transport = &http.Transport{
+		Proxy: http.ProxyURL(proxyURL),
+	}
+
+	// First request: should hit upstream and cache
+	t.Run("cache miss - upstream connection", func(t *testing.T) {
+		resp, err := client.Get(upstreamURL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		_ = resp.Body.Close()
+		assert.Equal(t, "MISS", resp.Header.Get("X-Cache"))
+		webServer.Close() // Close after first request
+	})
+
+	// Second: setup raw TCP server for cache hit
+	parsedURL, _ := url.Parse(upstreamURL)
+	connCount := 0
+	tcpLn, err := net.Listen("tcp", parsedURL.Host)
+	if err != nil {
+		t.Fatalf("Failed to start raw TCP listener: %v", err)
+	}
+	defer func() { _ = tcpLn.Close() }()
+	go func() {
+		for {
+			conn, err := tcpLn.Accept()
+			if err != nil {
+				return // Listener closed
+			}
+			connCount++
+			_ = conn.Close()
+		}
+	}()
+
+	// Second request: should hit cache, no upstream connection
+	t.Run("cache hit - no upstream connection", func(t *testing.T) {
+		resp2, err := client.Get(upstreamURL + "/test")
+		if err != nil {
+			panic(fmt.Sprintf("Request failed: %v", err))
+		}
+		_ = resp2.Body.Close()
+		assert.Equal(t, "HIT", resp2.Header.Get("X-Cache"))
+		if connCount != 0 {
+			t.Fatalf("Expected no TCP connection to upstream on cache hit, got %d", connCount)
+		}
 	})
 }
