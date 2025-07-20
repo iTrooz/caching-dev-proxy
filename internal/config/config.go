@@ -3,11 +3,17 @@ package config
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/knadh/koanf/maps"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/structs"
+	"github.com/knadh/koanf/v2"
+	"github.com/sirupsen/logrus"
 )
 
 // Config represents the application configuration
@@ -62,26 +68,88 @@ type CacheRule struct {
 	StatusCodes []string `yaml:"status_codes,omitempty"` // e.g., ["200", "404", "4xx", "5xx"]
 }
 
-// Load loads configuration from a YAML file
+// DefaultConfig holds the default configuration values
+var DefaultConfig = Config{
+	Server: ServerConfig{
+		Port: 8080,
+		SSLBumping: SSLConfig{
+			Enabled:    true,
+			CAKeyFile:  "",
+			CACertFile: "",
+		},
+	},
+	Cache: CacheConfig{
+		TTL:    "1h",
+		Folder: "./cache",
+	},
+	Rules: RulesConfig{
+		Mode:  RulesModeBlacklist,
+		Rules: []CacheRule{},
+	},
+	Log: LogConfig{
+		Level:      "info",
+		ThirdParty: false,
+	},
+}
+
+type TransformFunc func(string, any) (*string, *any)
+
+func transformMap(transformFunc TransformFunc, m map[string]any) {
+	for k, v := range m {
+		nk, nv := transformFunc(k, v)
+		if nk != nil && nv != nil {
+			delete(m, k)
+			m[*nk] = nv
+		} else if nk != nil && nv == nil {
+			delete(m, k)
+			m[*nk] = v
+		} else if nk == nil && nv != nil {
+			m[k] = nv
+		}
+
+		if subMap, ok := v.(map[string]any); ok {
+			transformMap(transformFunc, subMap)
+		}
+	}
+}
+
+func WithTransformFunc(transformFunc TransformFunc) koanf.Option {
+	return koanf.WithMergeFunc(func(src, dest map[string]interface{}) error {
+		transformMap(transformFunc, src)
+
+		return maps.MergeStrict(src, dest)
+	})
+}
+
+func ToLowercase() koanf.Option {
+	return WithTransformFunc(func(s string, a any) (*string, *any) {
+		lowered := strings.ToLower(s)
+		return &lowered, nil
+	})
+}
+
+// Load loads configuration from a YAML file using koanf
 func Load(path string) (*Config, error) {
+	k := koanf.New(":")
+
+	// Load defaults from DefaultConfig
+	if err := k.Load(structs.Provider(DefaultConfig, "."), nil, ToLowercase()); err != nil {
+		return nil, fmt.Errorf("loading defaults: %w", err)
+	}
+
+	// Load YAML file if present
+	logrus.Infof("Loading config from %s", path)
+	if _, err := os.Stat(path); err == nil {
+		if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
+			return nil, fmt.Errorf("loading config file: %w", err)
+		}
+	}
+
 	var config Config
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading config file: %w", err)
+	if err := k.Unmarshal("", &config); err != nil {
+		return nil, fmt.Errorf("unmarshalling config: %w", err)
 	}
-
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("parsing config YAML: %w", err)
-	}
-
-	// Set defaults
-	if config.Server.Port == 0 {
-		config.Server.Port = 8080
-	}
-	if config.Log.Level == "" {
-		config.Log.Level = "info"
-	}
+	fmt.Printf("Config Port: %v\n", config.Server.Port)
 
 	return &config, nil
 }
@@ -97,37 +165,17 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid port: %d", c.Server.Port)
 	}
 
-	if c.Cache.TTL == "" {
-		return fmt.Errorf("cache TTL is required")
-	}
-
 	if _, err := c.GetCacheTTL(); err != nil {
 		return fmt.Errorf("invalid cache TTL format: %w", err)
-	}
-
-	if c.Cache.Folder == "" {
-		return fmt.Errorf("cache folder is required")
 	}
 
 	if c.Rules.Mode != "whitelist" && c.Rules.Mode != "blacklist" {
 		return fmt.Errorf("rules mode must be 'whitelist' or 'blacklist', got: %s", c.Rules.Mode)
 	}
 
-	validLogLevels := map[string]bool{
-		"debug": true, "info": true, "warn": true, "error": true,
-	}
-	if !validLogLevels[c.Log.Level] {
+	validLogLevels := []string{"debug", "info", "warn", "error"}
+	if !slices.Contains(validLogLevels, c.Log.Level) {
 		return fmt.Errorf("log level must be one of 'debug', 'info', 'warn', 'error', got: %s", c.Log.Level)
-	}
-
-	// Validate SSL bumping configuration
-	if c.Server.SSLBumping.Enabled {
-		if c.Server.SSLBumping.CACertFile == "" {
-			return fmt.Errorf("ssl_bumping.ca_file is required when SSL bumping is enabled")
-		}
-		if c.Server.SSLBumping.CAKeyFile == "" {
-			return fmt.Errorf("ssl_bumping.key_file is required when SSL bumping is enabled")
-		}
 	}
 
 	return nil
