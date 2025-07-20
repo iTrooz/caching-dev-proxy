@@ -61,7 +61,7 @@ func fixture_tcp_upstream(t *testing.T, address string) func() int {
 
 	return func() int {
 		err := tcpLn.Close()
-		if err != nil {
+		if err != nil && !errors.Is(err, net.ErrClosed) {
 			panic(err)
 		}
 		return connCount
