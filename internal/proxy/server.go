@@ -195,10 +195,10 @@ func (s *Server) setupProxyHandlers() {
 
 			// Add cache information header, only if not already set (to avoid overwriting cache hits)
 			if resp.Header.Get("X-Cache") == "" {
-				if !s.shouldBeCached(ctx.Req, resp) {
-					resp.Header.Set("X-Cache", "DISABLED")
-				} else {
+				if s.shouldBeCached(ctx.Req, resp) {
 					resp.Header.Set("X-Cache", "MISS")
+				} else {
+					resp.Header.Set("X-Cache", "DISABLED")
 				}
 			}
 		}
