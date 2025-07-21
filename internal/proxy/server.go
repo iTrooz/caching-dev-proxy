@@ -156,6 +156,11 @@ func (s *Server) setupProxyHandlers() {
 		logrus.Debugf("OnRequest()")
 		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
 
+		// X-Cache-Bypass: if present, skip cache entirely
+		if req.Header.Get("X-Cache-Bypass") != "" {
+			return req, nil
+		}
+
 		// Check if we have a cached response
 		if s.isCached(req) {
 			if cachedResp := s.getCachedResponse(req); cachedResp != nil {
@@ -175,32 +180,37 @@ func (s *Server) setupProxyHandlers() {
 			return resp
 		}
 
-		// Read response body for caching
-		if resp.Body != nil {
-			// Cache the response if it should be cached and it's not already a cache hit
-			isCacheHit := resp.Header.Get("X-Cache") == "HIT"
-			if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
-				respCopy, err := copyResponse(resp)
-				if err != nil {
-					logrus.Errorf("Failed to copy response for caching: %v", err)
-				} else {
-					s.cacheResponse(ctx.Req, respCopy)
+		// If X-Cache-Bypass was set, mark header and skip cache logic
+		if ctx.Req.Header.Get("X-Cache-Bypass") != "" {
+			resp.Header.Set("X-Cache", "BYPASS")
+		} else {
+			// Read response body for caching
+			if resp.Body != nil {
+				// Cache the response if it should be cached and it's not already a cache hit
+				isCacheHit := resp.Header.Get("X-Cache") == "HIT"
+				if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
+					respCopy, err := copyResponse(resp)
+					if err != nil {
+						logrus.Errorf("Failed to copy response for caching: %v", err)
+					} else {
+						s.cacheResponse(ctx.Req, respCopy)
+					}
+				}
+
+				// Add cache information header only if not already set (to avoid overwriting cache hits)
+				if resp.Header.Get("X-Cache") == "" {
+					if !s.shouldBeCached(ctx.Req, resp) {
+						resp.Header.Set("X-Cache", "DISABLED")
+					} else {
+						resp.Header.Set("X-Cache", "MISS")
+					}
 				}
 			}
-
-			// Add cache information header only if not already set (to avoid overwriting cache hits)
-			if resp.Header.Get("X-Cache") == "" {
-				if !s.shouldBeCached(ctx.Req, resp) {
-					resp.Header.Set("X-Cache", "DISABLED")
-				} else {
-					resp.Header.Set("X-Cache", "MISS")
-				}
-			}
-
-			end := time.Now()
-			duration := end.Sub(ctx.UserData.(time.Time))
-			logrus.Infof("%v %v <- %v %v (%v)", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
 		}
+
+		end := time.Now()
+		duration := end.Sub(ctx.UserData.(time.Time))
+		logrus.Infof("%v %v <- %v %v (%v)", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
 
 		return resp
 	})
