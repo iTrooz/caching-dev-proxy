@@ -51,6 +51,12 @@ type Server struct {
 	rules        []Rule
 }
 
+// ctxUserData holds per-request context for cache logic
+type ctxUserData struct {
+	start  time.Time
+	bypass bool
+}
+
 // New creates a new proxy server
 func New(cfg *config.Config) (*Server, error) {
 	cacheTTL, err := cfg.GetCacheTTL()
@@ -152,12 +158,18 @@ func (s *Server) setupProxyHandlers() {
 
 	// Handle HTTP requests with caching
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		ctx.UserData = time.Now()
 		logrus.Debugf("OnRequest()")
 		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
 
+		userData := ctxUserData{
+			start: time.Now(),
+		}
+		ctx.UserData = &userData
+
 		// X-Cache-Bypass: if present, skip cache entirely
 		if req.Header.Get("X-Cache-Bypass") != "" {
+			userData.bypass = true
+			req.Header.Del("X-Cache-Bypass")
 			return req, nil
 		}
 
@@ -178,8 +190,14 @@ func (s *Server) setupProxyHandlers() {
 			return resp
 		}
 
+		userData, ok := ctx.UserData.(*ctxUserData)
+		if !ok {
+			logrus.Error("OnResponse: ctxUserData not found in UserData, cannot process response")
+			return nil
+		}
+
 		// If X-Cache-Bypass was set, mark header and skip cache logic
-		if ctx.Req.Header.Get("X-Cache-Bypass") != "" {
+		if userData.bypass {
 			resp.Header.Set("X-Cache", "BYPASS")
 		} else {
 			// Cache the response if it should be cached and it's not already a cache hit
@@ -204,7 +222,7 @@ func (s *Server) setupProxyHandlers() {
 		}
 
 		end := time.Now()
-		duration := end.Sub(ctx.UserData.(time.Time))
+		duration := end.Sub(userData.start)
 		logrus.Infof("%v %v <- %v %v (%v)", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
 
 		return resp
