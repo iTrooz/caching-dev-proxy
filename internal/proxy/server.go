@@ -182,26 +182,23 @@ func (s *Server) setupProxyHandlers() {
 		if ctx.Req.Header.Get("X-Cache-Bypass") != "" {
 			resp.Header.Set("X-Cache", "BYPASS")
 		} else {
-			// Read response body for caching
-			if resp.Body != nil {
-				// Cache the response if it should be cached and it's not already a cache hit
-				isCacheHit := resp.Header.Get("X-Cache") == "HIT"
-				if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
-					respCopy, err := copyResponse(resp)
-					if err != nil {
-						logrus.Errorf("Failed to copy response for caching: %v", err)
-					} else {
-						s.cacheResponse(ctx.Req, respCopy)
-					}
+			// Cache the response if it should be cached and it's not already a cache hit
+			isCacheHit := resp.Header.Get("X-Cache") == "HIT"
+			if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
+				respCopy, err := copyResponse(resp)
+				if err != nil {
+					logrus.Errorf("Failed to copy response for caching: %v", err)
+				} else {
+					s.cacheResponse(ctx.Req, respCopy)
 				}
+			}
 
-				// Add cache information header only if not already set (to avoid overwriting cache hits)
-				if resp.Header.Get("X-Cache") == "" {
-					if !s.shouldBeCached(ctx.Req, resp) {
-						resp.Header.Set("X-Cache", "DISABLED")
-					} else {
-						resp.Header.Set("X-Cache", "MISS")
-					}
+			// Add cache information header, only if not already set (to avoid overwriting cache hits)
+			if resp.Header.Get("X-Cache") == "" {
+				if !s.shouldBeCached(ctx.Req, resp) {
+					resp.Header.Set("X-Cache", "DISABLED")
+				} else {
+					resp.Header.Set("X-Cache", "MISS")
 				}
 			}
 		}
