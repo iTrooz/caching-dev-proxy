@@ -162,11 +162,9 @@ func (s *Server) setupProxyHandlers() {
 		}
 
 		// Check if we have a cached response
-		if s.isCached(req) {
-			if cachedResp := s.getCachedResponse(req); cachedResp != nil {
-				logrus.Debugf("OnRequest(%s): Serving from cache", req.URL.String())
-				return req, cachedResp
-			}
+		if cachedResp := s.getCachedResponse(req); cachedResp != nil {
+			logrus.Debugf("OnRequest(%s): Serving from cache", req.URL.String())
+			return req, cachedResp
 		}
 
 		// Continue with the request (will be handled by OnResponse)
@@ -278,21 +276,6 @@ func (s *Server) handleRequest(w http.ResponseWriter, requ *http.Request) {
 	// The goproxy handlers now handle all requests
 	logrus.Debugf("Legacy handleRequest called for: %s %s", requ.Method, requ.URL.String())
 	http.Error(w, "This endpoint should not be called directly", http.StatusInternalServerError)
-}
-
-// isCached checks if we should attempt to serve from cache
-func (s *Server) isCached(requ *http.Request) bool {
-	// Check if cached file exists and is not expired
-	data, err := s.cacheManager.Get(requ)
-	if err != nil {
-		logrus.Errorf("Failed to get cached data for %s: %v", requ.URL, err)
-		return false
-	}
-	if data != nil {
-		logrus.Debugf("Cache hit for %s", requ.URL)
-		return true
-	}
-	return false
 }
 
 // shouldBeCached determines if a response should be cached based on rules
