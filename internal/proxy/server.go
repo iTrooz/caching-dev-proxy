@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"caching-dev-proxy/internal/cache"
 	"caching-dev-proxy/internal/config"
@@ -151,6 +152,7 @@ func (s *Server) setupProxyHandlers() {
 
 	// Handle HTTP requests with caching
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		ctx.UserData = time.Now()
 		logrus.Debugf("OnRequest()")
 		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
 
@@ -195,11 +197,23 @@ func (s *Server) setupProxyHandlers() {
 				}
 			}
 
-			logrus.Infof("%v %v <- %v %v", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String())
+			end := time.Now()
+			duration := end.Sub(ctx.UserData.(time.Time))
+			logrus.Infof("%v %v <- %v %v (%v)", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
 		}
 
 		return resp
 	})
+}
+
+func roundDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return d.String()
+	} else if d < time.Second {
+		return d.Round(time.Millisecond).String()
+	} else {
+		return d.Round(time.Second).String()
+	}
 }
 
 // Start starts the proxy server
