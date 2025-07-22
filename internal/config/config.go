@@ -78,7 +78,7 @@ var DefaultConfig = Config{
 		},
 	},
 	Cache: CacheConfig{
-		TTL:    "1h",
+		TTL:    "",
 		Folder: "./cache",
 	},
 	Rules: RulesConfig{
@@ -118,7 +118,11 @@ func Load(path string) (*Config, error) {
 
 // GetCacheTTL parses and returns the cache TTL duration
 func (c *Config) GetCacheTTL() (time.Duration, error) {
-	return time.ParseDuration(c.Cache.TTL)
+	if c.Cache.TTL == "" {
+		return 0, nil // infinite
+	} else {
+		return time.ParseDuration(c.Cache.TTL)
+	}
 }
 
 // Validate validates the configuration

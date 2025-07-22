@@ -42,7 +42,9 @@ func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
 		return nil, fmt.Errorf("cache file stat error for %s: %w", fullPath, err)
 	}
 
-	if time.Since(info.ModTime()) > d.ttl {
+	// check TTL (0 means infinity)
+	if d.ttl != 0 && time.Since(info.ModTime()) > d.ttl {
+		logrus.Debugf("Cache expired for %s (ttl was %s), removing", cacheKey, d.ttl)
 		// Cache expired, remove it
 		if err := os.Remove(fullPath); err != nil {
 			// Do not return error because removing an expired cache file is not critical for Get()
