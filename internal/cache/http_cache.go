@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -47,13 +46,13 @@ func (d *HTTPCache) getKey(request *http.Request) (string, error) {
 	return filepath.Join(pathParts...), nil
 }
 
-func (d *HTTPCache) Set(request *http.Request, value *http.Response) error {
+func (d *HTTPCache) Set(request *http.Request, resp *http.Response) error {
 	cacheKey, err := d.getKey(request)
 	if err != nil {
 		return fmt.Errorf("failed to generate cache key: %w", err)
 	}
 
-	data, err := io.ReadAll(value.Body)
+	data, err := Serialize(resp)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
@@ -79,12 +78,11 @@ func (d *HTTPCache) Get(key *http.Request) (*http.Response, error) {
 		return nil, nil // Cache miss
 	}
 
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(string(data))),
-		Header:     http.Header{"Content-Type": []string{"application/octet-stream"}},
-		Request:    key,
+	resp, err := Deserialize(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize response: %w", err)
 	}
+	resp.Request = key // Associate the original request with the response
 
 	logrus.Debugf("Cache hit for %s %s", key.Method, key.URL.String())
 	return resp, nil
