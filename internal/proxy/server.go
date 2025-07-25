@@ -262,18 +262,6 @@ func (s *Server) getCachedResponse(requ *http.Request) *http.Response {
 	return resp
 }
 
-// HandleRequest handles HTTP requests (exported for testing)
-func (s *Server) HandleRequest(w http.ResponseWriter, requ *http.Request) {
-	s.handleRequest(w, requ)
-}
-
-func (s *Server) handleRequest(w http.ResponseWriter, requ *http.Request) {
-	// This method is kept for backward compatibility but is no longer used
-	// The goproxy handlers now handle all requests
-	logrus.Debugf("Legacy handleRequest called for: %s %s", requ.Method, requ.URL.String())
-	http.Error(w, "This endpoint should not be called directly", http.StatusInternalServerError)
-}
-
 // shouldBeCached determines if a response should be cached based on rules
 func (s *Server) shouldBeCached(requ *http.Request, resp *http.Response) bool {
 	matched := false
