@@ -141,37 +141,39 @@ func loadCertificate(cfg *config.Config) (*tls.Certificate, error) {
 	return &cert, nil
 }
 
+func (s *Server) setupHTTPSProxyHandler() {
+	// Load CA certificate
+	caCert, err := loadCertificate(s.config)
+	if err != nil {
+		logrus.Errorf("Failed to load CA certificate: %v", err)
+		return
+	}
+
+	if caCert == nil {
+		// Use goproxy's default certificate
+		logrus.Warnf("TLS interception enabled but no CA certificate loaded, using goproxy default certificate")
+		s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	} else {
+		// Make goproxy use our provided CA certificate
+		customCaMitm := &goproxy.ConnectAction{
+			Action:    goproxy.ConnectMitm,
+			TLSConfig: goproxy.TLSConfigFromCA(caCert),
+		}
+		customAlwaysMitm := goproxy.FuncHttpsHandler(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+			logrus.Debugf("Handling CONNECT request for %s", host)
+			return customCaMitm, host
+		})
+		s.proxy.OnRequest().HandleConnect(customAlwaysMitm)
+	}
+}
+
 // setupProxyHandlers configures the goproxy handlers
 func (s *Server) setupProxyHandlers() {
-	// Handle CONNECT requests (HTTPS tunneling)
-	logrus.Debugf("TLS interception enabled: %v", s.config.Server.HTTPS.Enabled)
+	// Handle CONNECT requests (HTTPS explicit proxying)
 	if s.config.Server.HTTPS.Enabled {
-
-		// Load CA certificate
-		caCert, err := loadCertificate(s.config)
-		if err != nil {
-			logrus.Errorf("Failed to load CA certificate: %v", err)
-			return
-		}
-
-		if caCert == nil {
-			// Use goproxy's default certificate
-			logrus.Warnf("TLS interception enabled but no CA certificate loaded, using goproxy default certificate")
-			s.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
-		} else {
-			// Make goproxy use our provided CA certificate
-			customCaMitm := &goproxy.ConnectAction{
-				Action:    goproxy.ConnectMitm,
-				TLSConfig: goproxy.TLSConfigFromCA(caCert),
-			}
-			customAlwaysMitm := goproxy.FuncHttpsHandler(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
-				logrus.Debugf("Handling CONNECT request for %s", host)
-				return customCaMitm, host
-			})
-			s.proxy.OnRequest().HandleConnect(customAlwaysMitm)
-		}
+		logrus.Debugf("TLS interception enabled: %v", s.config.Server.HTTPS.Enabled)
+		s.setupHTTPSProxyHandler()
 	}
-	// If TLS interception is disabled, goproxy will handle CONNECT requests normally by default
 
 	// Handle HTTP requests with caching
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
