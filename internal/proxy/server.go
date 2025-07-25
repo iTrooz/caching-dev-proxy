@@ -201,14 +201,13 @@ func (s *Server) Start() error {
 	logrus.Debugf("Rules mode: %s", s.config.Rules.Mode)
 	if s.config.Server.HTTPS.Enabled {
 		logrus.Debugf("TLS interception: enabled with CA certificate: %s", s.config.Server.HTTPS.CACertFile)
+		// Enable transparent HTTPS proxying if configured
+		if s.config.Server.HTTPS.Transparent.Address != "" {
+			go s.StartTransparentHTTPS(s.config.Server.HTTPS.Transparent.Address)
+			logrus.Infof("Transparent HTTPS proxying enabled at %s", s.config.Server.HTTPS.Transparent.Address)
+		}
 	} else {
 		logrus.Debugf("TLS interception: disabled")
-	}
-
-	// Enable transparent HTTPS proxying if configured
-	if s.config.Server.HTTPS.Transparent.Address != "" {
-		go s.StartTransparentHTTPS(s.config.Server.HTTPS.Transparent.Address)
-		logrus.Infof("Transparent HTTPS proxying enabled on %s", s.config.Server.HTTPS.Transparent.Address)
 	}
 
 	return http.ListenAndServe(s.config.Server.HTTP.Address, s.proxy)
