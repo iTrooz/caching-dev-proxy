@@ -35,7 +35,7 @@ type TLSConfig struct {
 	Enabled    bool   `koanf:"enabled"`
 	CAKeyFile  string `koanf:"ca_key_file"`
 	CACertFile string `koanf:"ca_cert_file"`
-	Addr       string `koanf:"address"` // HTTPS port for transparent proxying
+	Address    string `koanf:"address"` // port for transparent HTTPS proxying
 }
 
 // CacheConfig contains cache-related configuration
@@ -77,6 +77,7 @@ var DefaultConfig = Config{
 			Enabled:    true,
 			CAKeyFile:  "",
 			CACertFile: "",
+			Address:    ":8443",
 		},
 	},
 	Cache: CacheConfig{

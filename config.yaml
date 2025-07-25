@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  address: ":8080" # port for transparent HTTP proxying, as well and HTTP/HTTPS classic proxying
   tls:
     enabled: true  # Set to true to enable TLS interception
     ca_key_file: "./local/ca.key"   # CA private key to generate dynamic certs

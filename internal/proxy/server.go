@@ -269,9 +269,9 @@ func (s *Server) Start() error {
 	}
 
 	// Enable transparent HTTPS proxying if configured
-	if s.config.Server.TLS.Addr != "" {
-		go s.StartTransparentHTTPS(s.config.Server.TLS.Addr)
-		logrus.Infof("Transparent HTTPS proxying enabled on %s", s.config.Server.TLS.Addr)
+	if s.config.Server.TLS.Address != "" {
+		go s.StartTransparentHTTPS(s.config.Server.TLS.Address)
+		logrus.Infof("Transparent HTTPS proxying enabled on %s", s.config.Server.TLS.Address)
 	}
 
 	return http.ListenAndServe(s.config.Server.Address, s.proxy)
