@@ -77,8 +77,11 @@ func New(cfg *config.Config) (*Server, error) {
 
 	// Create goproxy instance
 	proxy := &goproxy.ProxyHttpServer{
-		Logger: log.New(os.Stderr, "", log.LstdFlags),
-		Tr:     &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, Proxy: http.ProxyFromEnvironment},
+		Logger:  log.New(os.Stderr, "", log.LstdFlags),
+		Tr:      &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, Proxy: http.ProxyFromEnvironment},
+		Verbose: cfg.Log.ThirdParty,
+		// Set up certificate storage for better performance during TLS interception
+		CertStore: &simpleCertStore{certs: make(map[string]*tls.Certificate)},
 	}
 	proxy.NonproxyHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Host == "" {
@@ -89,10 +92,6 @@ func New(cfg *config.Config) (*Server, error) {
 		req.URL.Host = req.Host
 		proxy.ServeHTTP(w, req)
 	})
-	proxy.Verbose = cfg.Log.ThirdParty
-
-	// Set up certificate storage for better performance during TLS interception
-	proxy.CertStore = &simpleCertStore{certs: make(map[string]*tls.Certificate)}
 
 	// Convert config rules to Rule interfaces
 	rules := make([]Rule, len(cfg.Rules.Rules))
