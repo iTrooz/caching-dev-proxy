@@ -14,7 +14,8 @@ func TestLoad(t *testing.T) {
 
 	configContent := `
 server:
-  address: ":9999"
+  http:
+    address: ":9999"
 cache:
   ttl: "30m"
   folder: "./test_cache"
@@ -39,8 +40,8 @@ rules:
 	}
 
 	// Verify values
-	if config.Server.Address != ":9999" {
-		t.Errorf("Expected address :9999, got %v", config.Server.Address)
+	if config.Server.HTTP.Address != ":9999" {
+		t.Errorf("Expected address :9999, got %v", config.Server.HTTP.Address)
 	}
 
 	if config.Cache.TTL != "30m" {
@@ -69,7 +70,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid config",
 			config: Config{
-				Server: ServerConfig{Address: ":8080"},
+				Server: ServerConfig{HTTP: HTTPConfig{Address: ":8080"}},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
 				Log:    LogConfig{Level: "info"},
@@ -79,7 +80,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid address",
 			config: Config{
-				Server: ServerConfig{Address: "-1"},
+				Server: ServerConfig{HTTP: HTTPConfig{Address: "-1"}},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
 			},
@@ -88,7 +89,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid TTL",
 			config: Config{
-				Server: ServerConfig{Address: ":8080"},
+				Server: ServerConfig{HTTP: HTTPConfig{Address: ":8080"}},
 				Cache:  CacheConfig{TTL: "invalid", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "whitelist"},
 			},
@@ -97,7 +98,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid mode",
 			config: Config{
-				Server: ServerConfig{Address: ":8080"},
+				Server: ServerConfig{HTTP: HTTPConfig{Address: ":8080"}},
 				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
 				Rules:  RulesConfig{Mode: "invalid"},
 			},

@@ -52,7 +52,7 @@ func main() {
 
 	// Handle CLI overrides
 	if *addressPtr != "" {
-		cfg.Server.Address = *addressPtr
+		cfg.Server.HTTP.Address = *addressPtr
 	}
 	if *verbosePtr {
 		cfg.Log.Level = "debug"

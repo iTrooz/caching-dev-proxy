@@ -24,18 +24,25 @@ type Config struct {
 }
 
 // ServerConfig contains server-related configuration
+// Updated for nested http/https config
 type ServerConfig struct {
-	Address              string    `koanf:"address"`
-	TLS                  TLSConfig `koanf:"tls"`
-	TransparentHTTPSAddr string    `koanf:"transparent_https_addr"`
+	HTTP  HTTPConfig  `koanf:"http"`
+	HTTPS HTTPSConfig `koanf:"https"`
 }
 
-// TLSConfig contains TLS interception configuration
-type TLSConfig struct {
-	Enabled    bool   `koanf:"enabled"`
-	CAKeyFile  string `koanf:"ca_key_file"`
-	CACertFile string `koanf:"ca_cert_file"`
-	Address    string `koanf:"address"` // port for transparent HTTPS proxying
+type HTTPConfig struct {
+	Address string `koanf:"address"`
+}
+
+type HTTPSConfig struct {
+	Enabled     bool              `koanf:"enabled"`
+	CAKeyFile   string            `koanf:"ca_key_file"`
+	CACertFile  string            `koanf:"ca_cert_file"`
+	Transparent TransparentConfig `koanf:"transparent"`
+}
+
+type TransparentConfig struct {
+	Address string `koanf:"address"`
 }
 
 // CacheConfig contains cache-related configuration
@@ -72,12 +79,16 @@ type CacheRule struct {
 // DefaultConfig holds the default configuration values
 var DefaultConfig = Config{
 	Server: ServerConfig{
-		Address: ":8080",
-		TLS: TLSConfig{
+		HTTP: HTTPConfig{
+			Address: ":8080",
+		},
+		HTTPS: HTTPSConfig{
 			Enabled:    true,
 			CAKeyFile:  "",
 			CACertFile: "",
-			Address:    ":8443",
+			Transparent: TransparentConfig{
+				Address: ":8443",
+			},
 		},
 	},
 	Cache: CacheConfig{

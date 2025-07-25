@@ -128,24 +128,24 @@ func copyResponse(resp *http.Response) (*http.Response, error) {
 }
 
 func loadCertificate(cfg *config.Config) (*tls.Certificate, error) {
-	if cfg.Server.TLS.CACertFile == "" || cfg.Server.TLS.CAKeyFile == "" {
+	if cfg.Server.HTTPS.CACertFile == "" || cfg.Server.HTTPS.CAKeyFile == "" {
 		logrus.Debugf("No CA certificate configured, using goproxy default certificate")
 		return nil, nil // Use default goproxy certificate
 	}
 
-	cert, err := tls.LoadX509KeyPair(cfg.Server.TLS.CACertFile, cfg.Server.TLS.CAKeyFile)
+	cert, err := tls.LoadX509KeyPair(cfg.Server.HTTPS.CACertFile, cfg.Server.HTTPS.CAKeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CA certificate and key: %w", err)
 	}
-	logrus.Debugf("Loaded CA certificate from %s", cfg.Server.TLS.CACertFile)
+	logrus.Debugf("Loaded CA certificate from %s", cfg.Server.HTTPS.CACertFile)
 	return &cert, nil
 }
 
 // setupProxyHandlers configures the goproxy handlers
 func (s *Server) setupProxyHandlers() {
 	// Handle CONNECT requests (HTTPS tunneling)
-	logrus.Debugf("TLS interception enabled: %v", s.config.Server.TLS.Enabled)
-	if s.config.Server.TLS.Enabled {
+	logrus.Debugf("TLS interception enabled: %v", s.config.Server.HTTPS.Enabled)
+	if s.config.Server.HTTPS.Enabled {
 
 		// Load CA certificate
 		caCert, err := loadCertificate(s.config)
@@ -258,23 +258,23 @@ func roundDuration(d time.Duration) string {
 
 // Start starts the proxy server
 func (s *Server) Start() error {
-	logrus.Infof("Starting caching proxy at %v", s.config.Server.Address)
+	logrus.Infof("Starting caching proxy at %v", s.config.Server.HTTP.Address)
 	logrus.Debugf("Cache directory: %s", s.config.Cache.Folder)
 	logrus.Debugf("Cache TTL: %s", s.config.Cache.TTL)
 	logrus.Debugf("Rules mode: %s", s.config.Rules.Mode)
-	if s.config.Server.TLS.Enabled {
-		logrus.Debugf("TLS interception: enabled with CA certificate: %s", s.config.Server.TLS.CACertFile)
+	if s.config.Server.HTTPS.Enabled {
+		logrus.Debugf("TLS interception: enabled with CA certificate: %s", s.config.Server.HTTPS.CACertFile)
 	} else {
 		logrus.Debugf("TLS interception: disabled")
 	}
 
 	// Enable transparent HTTPS proxying if configured
-	if s.config.Server.TLS.Address != "" {
-		go s.StartTransparentHTTPS(s.config.Server.TLS.Address)
-		logrus.Infof("Transparent HTTPS proxying enabled on %s", s.config.Server.TLS.Address)
+	if s.config.Server.HTTPS.Transparent.Address != "" {
+		go s.StartTransparentHTTPS(s.config.Server.HTTPS.Transparent.Address)
+		logrus.Infof("Transparent HTTPS proxying enabled on %s", s.config.Server.HTTPS.Transparent.Address)
 	}
 
-	return http.ListenAndServe(s.config.Server.Address, s.proxy)
+	return http.ListenAndServe(s.config.Server.HTTP.Address, s.proxy)
 }
 
 // GetProxy returns the underlying goproxy instance for testing
