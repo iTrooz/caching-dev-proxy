@@ -5,7 +5,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"caching-dev-proxy/internal/cache"
@@ -71,7 +73,13 @@ func New(cfg *config.Config) (*Server, error) {
 	cacheManager := cache.NewHTTP(generic)
 
 	// Create goproxy instance
-	proxy := goproxy.NewProxyHttpServer()
+	proxy := &goproxy.ProxyHttpServer{
+		Logger: log.New(os.Stderr, "", log.LstdFlags),
+		NonproxyHandler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			http.Error(w, "This is a proxy server. Does not respond to non-proxy requests.", http.StatusInternalServerError)
+		}),
+		Tr: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, Proxy: http.ProxyFromEnvironment},
+	}
 	proxy.Verbose = cfg.Log.ThirdParty
 
 	// Set up certificate storage for better performance during TLS interception
