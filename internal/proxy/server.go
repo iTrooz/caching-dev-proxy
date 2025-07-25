@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"caching-dev-proxy/internal/config"
 
 	"github.com/elazarl/goproxy"
+	"github.com/inconshreveable/go-vhost"
 	"github.com/sirupsen/logrus"
 )
 
@@ -265,6 +268,12 @@ func (s *Server) Start() error {
 		logrus.Debugf("TLS interception: disabled")
 	}
 
+	// Enable transparent HTTPS proxying if configured
+	if s.config.Server.TLS.Addr != "" {
+		go s.StartTransparentHTTPS(s.config.Server.TLS.Addr)
+		logrus.Infof("Transparent HTTPS proxying enabled on %s", s.config.Server.TLS.Addr)
+	}
+
 	return http.ListenAndServe(s.config.Server.Address, s.proxy)
 }
 
@@ -328,5 +337,43 @@ func (s *Server) shouldBeCached(requ *http.Request, resp *http.Response) bool {
 func (s *Server) cacheResponse(requ *http.Request, resp *http.Response) {
 	if err := s.cacheManager.Set(requ, resp); err != nil {
 		logrus.Errorf("Failed to cache response for %s: %v", requ.URL.String(), err)
+	}
+}
+
+// StartTransparentHTTPS enables transparent HTTPS proxying
+func (s *Server) StartTransparentHTTPS(httpsAddr string) {
+	ln, err := net.Listen("tcp", httpsAddr)
+	if err != nil {
+		log.Fatalf("Error listening for https connections - %v", err)
+	}
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			log.Printf("Error accepting new connection - %v", err)
+			continue
+		}
+		go func(c net.Conn) {
+			tlsConn, err := vhost.TLS(c)
+			if err != nil {
+				log.Printf("Error accepting new connection - %v", err)
+				return
+			}
+			if tlsConn.Host() == "" {
+				log.Printf("Cannot support non-SNI enabled clients")
+				return
+			}
+			connectReq := &http.Request{
+				Method: http.MethodConnect,
+				URL: &url.URL{
+					Opaque: tlsConn.Host(),
+					Host:   net.JoinHostPort(tlsConn.Host(), "443"),
+				},
+				Host:       tlsConn.Host(),
+				Header:     make(http.Header),
+				RemoteAddr: c.RemoteAddr().String(),
+			}
+			resp := dumbResponseWriter{tlsConn}
+			s.proxy.ServeHTTP(resp, connectReq)
+		}(c)
 	}
 }

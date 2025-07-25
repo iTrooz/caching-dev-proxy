@@ -4,6 +4,7 @@ server:
     enabled: true  # Set to true to enable TLS interception
     ca_key_file: "./local/ca.key"   # CA private key to generate dynamic certs
     ca_cert_file: "./local/ca.crt"  # CA certificate
+    address: ":8443"  # Address for transparent HTTPS proxying
 
 cache:
   ttl: "1h"  # Cache time-to-live (e.g., "30m", "1h", "24h")

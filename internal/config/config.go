@@ -25,8 +25,9 @@ type Config struct {
 
 // ServerConfig contains server-related configuration
 type ServerConfig struct {
-	Address string    `koanf:"address"`
-	TLS     TLSConfig `koanf:"tls"`
+	Address              string    `koanf:"address"`
+	TLS                  TLSConfig `koanf:"tls"`
+	TransparentHTTPSAddr string    `koanf:"transparent_https_addr"`
 }
 
 // TLSConfig contains TLS interception configuration
@@ -34,6 +35,7 @@ type TLSConfig struct {
 	Enabled    bool   `koanf:"enabled"`
 	CAKeyFile  string `koanf:"ca_key_file"`
 	CACertFile string `koanf:"ca_cert_file"`
+	Addr       string `koanf:"address"` // HTTPS port for transparent proxying
 }
 
 // CacheConfig contains cache-related configuration
