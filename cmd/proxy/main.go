@@ -1,4 +1,4 @@
-package main
+package procycmd
 
 import (
 	"flag"
@@ -31,7 +31,7 @@ func setupLogrus(level string) {
 	}
 }
 
-func main() {
+func Main() {
 	// Parse CLI flags
 	configPathPtr := flag.String("config", "", "Configuration file path")
 	addressPtr := flag.String("a", "", "Address to listen on (example: :8080)")

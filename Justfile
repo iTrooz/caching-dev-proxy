@@ -2,10 +2,10 @@ default:
     just --summary
 
 build:
-	go build -o caching-dev-proxy ./cmd/proxy
+	go build -o caching-dev-proxy ./
 
 run *args:
-	go run ./cmd/proxy {{args}}
+	go run ./ {{args}}
 
 test *args:
 	go test ./... {{args}}
