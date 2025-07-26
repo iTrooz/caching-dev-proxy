@@ -11,7 +11,7 @@ This project allows you to cache any HTTP request sent by one of the tools on yo
 # Installation
 
 ```sh
-go install github.com/iTrooz/caching-dev-proxy
+go install github.com/iTrooz/caching-dev-proxy@latest
 ```
 
 # Usage
