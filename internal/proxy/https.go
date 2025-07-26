@@ -1,13 +1,14 @@
 package proxy
 
 import (
-	"caching-dev-proxy/internal/config"
 	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
+
+	"github.com/iTrooz/caching-dev-proxy/internal/config"
 
 	"github.com/elazarl/goproxy"
 	"github.com/inconshreveable/go-vhost"

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"caching-dev-proxy/internal/config"
-	"caching-dev-proxy/internal/proxy"
+	"github.com/iTrooz/caching-dev-proxy/internal/config"
+	"github.com/iTrooz/caching-dev-proxy/internal/proxy"
 
 	"github.com/sirupsen/logrus"
 )

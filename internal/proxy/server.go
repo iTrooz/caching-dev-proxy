@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"caching-dev-proxy/internal/cache"
-	"caching-dev-proxy/internal/config"
+	"github.com/iTrooz/caching-dev-proxy/internal/cache"
+	"github.com/iTrooz/caching-dev-proxy/internal/config"
 
 	"github.com/elazarl/goproxy"
 	"github.com/sirupsen/logrus"

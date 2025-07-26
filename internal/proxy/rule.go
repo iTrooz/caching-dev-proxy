@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"caching-dev-proxy/internal/config"
+	"github.com/iTrooz/caching-dev-proxy/internal/config"
 )
 
 // Rule interface for matching requests against caching rules

@@ -1,4 +1,4 @@
-module caching-dev-proxy
+module github.com/iTrooz/caching-dev-proxy
 
 go 1.23.0
 

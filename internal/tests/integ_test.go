@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"caching-dev-proxy/internal/config"
+	"github.com/iTrooz/caching-dev-proxy/internal/config"
 )
 
 func init() {

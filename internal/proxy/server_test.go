@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"caching-dev-proxy/internal/config"
+	"github.com/iTrooz/caching-dev-proxy/internal/config"
 )
 
 func TestNew(t *testing.T) {
