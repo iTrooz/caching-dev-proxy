@@ -2,11 +2,13 @@
 
 This project allows you to cache any HTTP request sent by one of the tools on your computer. You can think of it as an alternatie to Squid, focused on local usage and developer experience
 
-# Development
-## Run
-`just run <args>`
-## Build
-`just build`
+# Features
+- Can cache EVERY request (with no respect to cache headers, e.g. `Cache-Control: no-cache`)
+- TTL for cache
+- HTTP proxying
+- HTTPS proxying with MITM
+- explicit & transparent proxying
+- Configuration based on request metadata (url, method..)
 
 # Installation
 
@@ -43,3 +45,9 @@ This tool was made to be used by a developer on their development machine. It sh
 See:
 - https://www.squid-cache.org/Doc/config/host_verify_strict/
 - CVE-2009-0801
+
+# Development
+## Run
+`just run <args>`
+## Build
+`just build`
