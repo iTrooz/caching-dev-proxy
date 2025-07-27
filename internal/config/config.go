@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -147,11 +146,6 @@ func (c *Config) Validate() error {
 
 	if c.Rules.Mode != "whitelist" && c.Rules.Mode != "blacklist" {
 		return fmt.Errorf("rules mode must be 'whitelist' or 'blacklist', got: %s", c.Rules.Mode)
-	}
-
-	validLogLevels := []string{"trace", "debug", "info", "warn", "error"}
-	if !slices.Contains(validLogLevels, c.Log.Level) {
-		return fmt.Errorf("log level must be one of 'debug', 'info', 'warn', 'error', got: %s", c.Log.Level)
 	}
 
 	return nil
