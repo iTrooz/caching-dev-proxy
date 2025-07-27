@@ -45,13 +45,13 @@ func TestHTTPCacheGetAndSet(t *testing.T) {
 	}
 
 	// Test Set
-	err = httpCache.Set(req, resp)
+	err = httpCache.SetReq(req, resp)
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
 
 	// Test Get
-	cachedResp, err := httpCache.Get(req)
+	cachedResp, err := httpCache.GetReq(req)
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -96,7 +96,7 @@ func TestHTTPCacheGetExpired(t *testing.T) {
 	}
 
 	// Set data
-	err = httpCache.Set(req, resp)
+	err = httpCache.SetReq(req, resp)
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
@@ -105,7 +105,7 @@ func TestHTTPCacheGetExpired(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Try to get expired data
-	cachedResp, err := httpCache.Get(req)
+	cachedResp, err := httpCache.GetReq(req)
 	if err != nil {
 		t.Errorf("Get() error = %v", err)
 	}
@@ -133,13 +133,13 @@ func TestHTTPCacheGetKeyError(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 	}
 
-	err = httpCache.Set(req, resp)
+	err = httpCache.SetReq(req, resp)
 	if err != nil {
 		t.Errorf("Expected no error for valid request, got: %v", err)
 	}
 
 	// Test Get with valid request should not error
-	cachedResp, err := httpCache.Get(req)
+	cachedResp, err := httpCache.GetReq(req)
 	if err != nil {
 		t.Errorf("Expected no error for valid request, got: %v", err)
 	}

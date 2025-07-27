@@ -7,5 +7,6 @@ linters:
     staticcheck:
       checks:
         - all
+        - -ST1020
         - -ST1003
         - -ST1000

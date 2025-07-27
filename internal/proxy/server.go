@@ -36,6 +36,7 @@ type Server struct {
 // ctxUserData holds per-request context for cache logic
 type ctxUserData struct {
 	start  time.Time
+	key    string
 	bypass bool
 	source string
 }
@@ -150,9 +151,24 @@ func (s *Server) setupProxyHandlers() {
 			return req, nil
 		}
 
+		// Generate cache key
+		key, err := s.cacheManager.GenerateKey(req)
+		if err != nil {
+			logrus.Errorf("OnRequest(url=%s): Failed to generate cache key: %v", req.URL.String(), err)
+			return req, nil
+		}
+		userData.key = key
+
 		// Check if we have a cached response
-		if cachedResp := s.getCachedResponse(req); cachedResp != nil {
+		cachedResp, err := s.cacheManager.GetKey(key)
+		if err != nil {
+			logrus.Errorf("OnRequest(url=%s): Failed to get cached response: %v", req.URL.String(), err)
+			return req, nil
+		}
+		if cachedResp != nil {
 			logrus.Debugf("OnRequest(url=%s): Serving from cache", req.URL.String())
+			cachedResp.Request = req
+			cachedResp.Header.Set("X-Cache", "HIT")
 			return req, cachedResp
 		}
 
@@ -185,7 +201,9 @@ func (s *Server) setupProxyHandlers() {
 				if err != nil {
 					logrus.Errorf("Onresponse(url=%s): Failed to copy response for caching: %v", ctx.Req.URL.String(), err)
 				} else {
-					s.cacheResponse(ctx.Req, respCopy)
+					if err := s.cacheManager.SetKey(userData.key, respCopy); err != nil {
+						logrus.Errorf("OnResponse(url=%s): Failed to cache response: %v", ctx.Req.URL.String(), err)
+					}
 				}
 			}
 

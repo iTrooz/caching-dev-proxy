@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -21,13 +22,39 @@ func NewHTTP(cache GenericCache) *HTTPCache {
 	}
 }
 
-// Generates a unique key to store a value, based on these attributes
-func (d *HTTPCache) getKey(request *http.Request) (string, error) {
-	// Create hash for query parameters to handle complex URLs
+// Generates a unique key to store a value, based on URL, method, selected headers, and body
+func (d *HTTPCache) GenerateKey(request *http.Request) (string, error) {
+	// Hash query parameters
 	hash := sha256.Sum256([]byte(request.URL.RawQuery))
 	queryHash := hex.EncodeToString(hash[:])[:8]
 
-	// Build path: /cache_folder/host/path/METHOD[_queryhash].bin
+	// Hash selected headers
+	headersToHash := []string{"Host", "Accept", "Accept-Encoding", "Accept-Language", "Content-Type"}
+	headersStr := ""
+	for _, k := range headersToHash {
+		if v, ok := request.Header[k]; ok {
+			headersStr += k + ":" + strings.Join(v, ",") + "\n"
+		}
+	}
+	headersHash := sha256.Sum256([]byte(headersStr))
+	headersHashStr := hex.EncodeToString(headersHash[:])[:8]
+
+	// Hash body (read and restore)
+	var bodyHashStr string
+	if request.Body != nil {
+		bodyBytes, _ := io.ReadAll(request.Body)
+		if err := request.Body.Close(); err != nil {
+			return "", fmt.Errorf("failed to close request body: %w", err)
+		}
+		logrus.Warnf("Body: %v", string(bodyBytes))
+		if len(bodyBytes) > 0 {
+			request.Body = io.NopCloser(strings.NewReader(string(bodyBytes))) // restore
+			bodyHash := sha256.Sum256(bodyBytes)
+			bodyHashStr = hex.EncodeToString(bodyHash[:])[:8]
+		}
+	}
+
+	// Build path: /cache_folder/host/path/METHOD[_queryhash][_headershash][_bodyhash].bin
 	host := strings.TrimSuffix(strings.TrimSuffix(request.URL.Host, ":80"), ":443")
 	pathParts := []string{host}
 
@@ -37,7 +64,13 @@ func (d *HTTPCache) getKey(request *http.Request) (string, error) {
 
 	filename := request.Method
 	if request.URL.RawQuery != "" {
-		filename += "_" + queryHash
+		filename += "_q" + queryHash
+	}
+	if headersStr != "" {
+		filename += "_h" + headersHashStr
+	}
+	if bodyHashStr != "" {
+		filename += "_b" + bodyHashStr
 	}
 	filename += ".bin"
 
@@ -46,31 +79,50 @@ func (d *HTTPCache) getKey(request *http.Request) (string, error) {
 	return filepath.Join(pathParts...), nil
 }
 
-func (d *HTTPCache) Set(request *http.Request, resp *http.Response) error {
-	cacheKey, err := d.getKey(request)
+func (d *HTTPCache) SetReq(request *http.Request, resp *http.Response) error {
+	cacheKey, err := d.GenerateKey(request)
 	if err != nil {
 		return fmt.Errorf("failed to generate cache key: %w", err)
 	}
 
+	return d.SetKey(cacheKey, resp)
+}
+
+func (d *HTTPCache) SetKey(requestKey string, resp *http.Response) error {
 	data, err := Serialize(resp)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if err := d.cache.Set(cacheKey, data); err != nil {
+	if err := d.cache.Set(requestKey, data); err != nil {
 		return fmt.Errorf("failed to set cache: %w", err)
 	}
 
 	return nil
 }
 
-func (d *HTTPCache) Get(key *http.Request) (*http.Response, error) {
-	cachePath, err := d.getKey(key)
+func (d *HTTPCache) GetReq(req *http.Request) (*http.Response, error) {
+	requestKey, err := d.GenerateKey(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate cache key: %w", err)
 	}
 
-	data, err := d.cache.Get(cachePath)
+	resp, err := d.GetKey(requestKey)
+	if err != nil {
+		return nil, err
+	}
+	// Handle no cache hit
+	if resp == nil {
+		return nil, nil
+	}
+
+	// Associate the original request with the response
+	resp.Request = req
+	return resp, nil
+}
+
+func (d *HTTPCache) GetKey(requestKey string) (*http.Response, error) {
+	data, err := d.cache.Get(requestKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cache: %w", err)
 	}
@@ -82,8 +134,5 @@ func (d *HTTPCache) Get(key *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize response: %w", err)
 	}
-	resp.Request = key // Associate the original request with the response
-
-	logrus.Debugf("Cache hit for %s %s", key.Method, key.URL.String())
 	return resp, nil
 }
