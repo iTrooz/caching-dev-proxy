@@ -118,8 +118,7 @@ func (s *Server) setupProxyHandlers() {
 
 	// Handle HTTP requests with caching
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		logrus.Debugf("OnRequest()")
-		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
+		logrus.Debugf("OnRequest(%s)", req.URL.String())
 
 		// Read user data
 		userData, ok := ctx.UserData.(*ctxUserData)
@@ -143,6 +142,7 @@ func (s *Server) setupProxyHandlers() {
 
 		// X-Cache-Bypass: if present, skip cache entirely
 		if req.Header.Get("X-Cache-Bypass") != "" {
+			logrus.Debugf("OnRequest(%s): bypassing cache because of X-Cache-Bypass", req.URL.String())
 			userData.bypass = true
 			req.Header.Del("X-Cache-Bypass")
 			return req, nil
@@ -155,19 +155,20 @@ func (s *Server) setupProxyHandlers() {
 		}
 
 		// Continue with the request (will be handled by OnResponse)
+		logrus.Debugf("OnRequest(%s): Querying upstream", req.URL.String())
 		return req, nil
 	})
 
 	// Handle responses for caching
 	s.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
-		logrus.Debugf("OnResponse()")
+		logrus.Debugf("OnResponse(%s)", ctx.Req.URL.String())
 		if resp == nil || ctx.Req == nil {
 			return resp
 		}
 
 		userData, ok := ctx.UserData.(*ctxUserData)
 		if !ok {
-			logrus.Error("OnResponse: ctxUserData not found in UserData, cannot process response")
+			logrus.Errorf("OnResponse(%s): ctxUserData not found in UserData, cannot process response", ctx.Req.URL.String())
 			return nil
 		}
 
@@ -180,7 +181,7 @@ func (s *Server) setupProxyHandlers() {
 			if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
 				respCopy, err := copyResponse(resp)
 				if err != nil {
-					logrus.Errorf("Failed to copy response for caching: %v", err)
+					logrus.Errorf("Onresponse(%s): Failed to copy response for caching: %v", ctx.Req.URL.String(), err)
 				} else {
 					s.cacheResponse(ctx.Req, respCopy)
 				}
