@@ -201,6 +201,13 @@ func (s *Server) setupProxyHandlers() {
 		duration := end.Sub(userData.start)
 		logrus.Infof("%s %v %v <- %v %v (%v)", userData.source, resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
 
+		// See https://github.com/elazarl/goproxy/issues/696
+		defer func() {
+			if err := ctx.Req.Body.Close(); err != nil {
+				logrus.Errorf("Failed to close request body: %v", err)
+			}
+		}()
+
 		return resp
 	})
 }
