@@ -4,7 +4,7 @@ This project allows you to cache any HTTP request sent by one of the tools on yo
 
 # Features
 - Can cache EVERY request (with no respect to cache headers, e.g. `Cache-Control: no-cache`)
-- TTL for cache
+- TTL (time to live) for cache entries
 - HTTP proxying
 - HTTPS proxying with MITM
 - explicit & transparent proxying
