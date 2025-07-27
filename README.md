@@ -51,3 +51,6 @@ See:
 `just run <args>`
 ## Build
 `just build`
+
+# Licence
+GPL-2.0-only OR GPL-3.0-or-later with proxy being me (iTrooz) [What does that mean ?](https://itrooz.fr/posts/gpl_licence/)
