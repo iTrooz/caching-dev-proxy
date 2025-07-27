@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -36,6 +37,7 @@ type Server struct {
 type ctxUserData struct {
 	start  time.Time
 	bypass bool
+	source string
 }
 
 // New creates a new proxy server
@@ -66,6 +68,10 @@ func New(cfg *config.Config) (*Server, error) {
 		}
 		req.URL.Scheme = "http"
 		req.URL.Host = req.Host
+		// Set source
+		req = req.WithContext(context.WithValue(req.Context(), ctxUserData{}, &ctxUserData{
+			source: SrcHTTPTransparent,
+		}))
 		proxy.ServeHTTP(w, req)
 	})
 
@@ -115,10 +121,25 @@ func (s *Server) setupProxyHandlers() {
 		logrus.Debugf("OnRequest()")
 		logrus.Debugf("Received request: %s %s", req.Method, req.URL.String())
 
-		userData := ctxUserData{
-			start: time.Now(),
+		// Read user data
+		userData, ok := ctx.UserData.(*ctxUserData)
+		if !ok {
+			// This is used for transparent HTTP proxying
+			// _ is to avoid error
+			userData, _ = req.Context().Value(ctxUserData{}).(*ctxUserData)
+			ctx.UserData = userData
 		}
-		ctx.UserData = &userData
+
+		// Set user data for plain HTTP request if not set
+		if userData == nil {
+			userData = &ctxUserData{
+				source: SrcHTTPExplicit,
+			}
+			ctx.UserData = userData
+		}
+
+		// Start chrono
+		userData.start = time.Now()
 
 		// X-Cache-Bypass: if present, skip cache entirely
 		if req.Header.Get("X-Cache-Bypass") != "" {
@@ -177,7 +198,7 @@ func (s *Server) setupProxyHandlers() {
 
 		end := time.Now()
 		duration := end.Sub(userData.start)
-		logrus.Infof("%v %v <- %v %v (%v)", resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
+		logrus.Infof("%s %v %v <- %v %v (%v)", userData.source, resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
 
 		return resp
 	})

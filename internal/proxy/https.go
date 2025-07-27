@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -49,6 +50,14 @@ func (s *Server) setupHTTPSProxyHandler() {
 		}
 		customAlwaysMitm := goproxy.FuncHttpsHandler(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 			logrus.Debugf("Handling CONNECT request for %s", host)
+
+			// Use user data from transparent proxying if available
+			if userData, ok := ctx.Req.Context().Value(ctxUserData{}).(*ctxUserData); ok {
+				ctx.UserData = userData
+			} else {
+				ctx.UserData = &ctxUserData{source: SrcHTTPSExplicit}
+			}
+
 			return customCaMitm, host
 		})
 		s.proxy.OnRequest().HandleConnect(customAlwaysMitm)
@@ -77,6 +86,7 @@ func (s *Server) StartTransparentHTTPS(httpsAddr string) {
 				log.Printf("Cannot support non-SNI enabled clients")
 				return
 			}
+			// Create request
 			connectReq := &http.Request{
 				Method: http.MethodConnect,
 				URL: &url.URL{
@@ -87,6 +97,11 @@ func (s *Server) StartTransparentHTTPS(httpsAddr string) {
 				Header:     make(http.Header),
 				RemoteAddr: c.RemoteAddr().String(),
 			}
+			// Set source
+			connectReq = connectReq.WithContext(context.WithValue(context.Background(), ctxUserData{}, &ctxUserData{
+				source: SrcHTTPSTransparent,
+			}))
+			// Send to goproxy
 			resp := dumbResponseWriter{tlsConn}
 			s.proxy.ServeHTTP(resp, connectReq)
 		}(c)
