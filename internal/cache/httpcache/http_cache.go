@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/iTrooz/caching-dev-proxy/internal/cache"
-	"github.com/sirupsen/logrus"
 )
 
 type HTTPCache struct {
@@ -47,7 +46,6 @@ func (d *HTTPCache) GenerateKey(request *http.Request) (string, error) {
 		if err := request.Body.Close(); err != nil {
 			return "", fmt.Errorf("failed to close request body: %w", err)
 		}
-		logrus.Warnf("Body: %v", string(bodyBytes))
 		if len(bodyBytes) > 0 {
 			request.Body = io.NopCloser(strings.NewReader(string(bodyBytes))) // restore
 			bodyHash := sha256.Sum256(bodyBytes)
