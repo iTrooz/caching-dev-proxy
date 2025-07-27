@@ -8,7 +8,7 @@ This project allows you to cache any HTTP request sent by one of the tools on yo
 - HTTP proxying
 - HTTPS proxying with MITM
 - explicit & transparent proxying
-- Does not connect to upstream at all if no requests need to be done 
+- Does not connect to upstream at all if no requests need to be done (unlike Squid, which will pre-init TCP connection for speed)
 - Configuration based on request metadata (url, method..)
 
 # Installation
