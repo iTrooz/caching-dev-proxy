@@ -118,6 +118,8 @@ func (s *Server) setupProxyHandlers() {
 
 	// Handle HTTP requests with caching
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		// Start chrono
+		start := time.Now()
 		logrus.Debugf("OnRequest(%s)", req.URL.String())
 
 		// Read user data
@@ -137,8 +139,8 @@ func (s *Server) setupProxyHandlers() {
 			ctx.UserData = userData
 		}
 
-		// Start chrono
-		userData.start = time.Now()
+		// Set chrono
+		userData.start = start
 
 		// X-Cache-Bypass: if present, skip cache entirely
 		if req.Header.Get("X-Cache-Bypass") != "" {
@@ -197,16 +199,15 @@ func (s *Server) setupProxyHandlers() {
 			}
 		}
 
+		// See https://github.com/elazarl/goproxy/issues/696
+		if err := ctx.Req.Body.Close(); err != nil {
+			logrus.Errorf("Failed to close request body: %v", err)
+		}
+
+		// Last thing to do: check time taken
 		end := time.Now()
 		duration := end.Sub(userData.start)
 		logrus.Infof("%s %v %v <- %v %v (%v)", userData.source, resp.StatusCode, resp.Header.Get("X-Cache"), ctx.Req.Method, ctx.Req.URL.String(), roundDuration(duration))
-
-		// See https://github.com/elazarl/goproxy/issues/696
-		defer func() {
-			if err := ctx.Req.Body.Close(); err != nil {
-				logrus.Errorf("Failed to close request body: %v", err)
-			}
-		}()
 
 		return resp
 	})
