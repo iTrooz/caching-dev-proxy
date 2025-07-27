@@ -120,7 +120,7 @@ func (s *Server) setupProxyHandlers() {
 	s.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 		// Start chrono
 		start := time.Now()
-		logrus.Debugf("OnRequest(%s)", req.URL.String())
+		logrus.Debugf("OnRequest(url=%s)", req.URL.String())
 
 		// Read user data
 		userData, ok := ctx.UserData.(*ctxUserData)
@@ -144,7 +144,7 @@ func (s *Server) setupProxyHandlers() {
 
 		// X-Cache-Bypass: if present, skip cache entirely
 		if req.Header.Get("X-Cache-Bypass") != "" {
-			logrus.Debugf("OnRequest(%s): bypassing cache because of X-Cache-Bypass", req.URL.String())
+			logrus.Debugf("OnRequest(url=%s): bypassing cache because of X-Cache-Bypass", req.URL.String())
 			userData.bypass = true
 			req.Header.Del("X-Cache-Bypass")
 			return req, nil
@@ -152,25 +152,25 @@ func (s *Server) setupProxyHandlers() {
 
 		// Check if we have a cached response
 		if cachedResp := s.getCachedResponse(req); cachedResp != nil {
-			logrus.Debugf("OnRequest(%s): Serving from cache", req.URL.String())
+			logrus.Debugf("OnRequest(url=%s): Serving from cache", req.URL.String())
 			return req, cachedResp
 		}
 
 		// Continue with the request (will be handled by OnResponse)
-		logrus.Debugf("OnRequest(%s): Querying upstream", req.URL.String())
+		logrus.Debugf("OnRequest(url=%s): Querying upstream", req.URL.String())
 		return req, nil
 	})
 
 	// Handle responses for caching
 	s.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
-		logrus.Debugf("OnResponse(%s)", ctx.Req.URL.String())
+		logrus.Debugf("OnResponse(url=%s)", ctx.Req.URL.String())
 		if resp == nil || ctx.Req == nil {
 			return resp
 		}
 
 		userData, ok := ctx.UserData.(*ctxUserData)
 		if !ok {
-			logrus.Errorf("OnResponse(%s): ctxUserData not found in UserData, cannot process response", ctx.Req.URL.String())
+			logrus.Errorf("OnResponse(url=%s): ctxUserData not found in UserData, cannot process response", ctx.Req.URL.String())
 			return nil
 		}
 
@@ -183,7 +183,7 @@ func (s *Server) setupProxyHandlers() {
 			if !isCacheHit && s.shouldBeCached(ctx.Req, resp) {
 				respCopy, err := copyResponse(resp)
 				if err != nil {
-					logrus.Errorf("Onresponse(%s): Failed to copy response for caching: %v", ctx.Req.URL.String(), err)
+					logrus.Errorf("Onresponse(url=%s): Failed to copy response for caching: %v", ctx.Req.URL.String(), err)
 				} else {
 					s.cacheResponse(ctx.Req, respCopy)
 				}

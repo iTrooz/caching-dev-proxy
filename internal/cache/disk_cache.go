@@ -24,7 +24,7 @@ func NewGenericDisk(cacheDir string, ttl time.Duration) GenericCache {
 }
 
 func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
-	logrus.Debugf("DiskCache::Get(%s)", cacheKey)
+	logrus.Debugf("DiskCache::Get(file=%s)", cacheKey)
 	if cacheKey == "" {
 		return nil, fmt.Errorf("cache path cannot be empty")
 	}
@@ -35,10 +35,10 @@ func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Cache file does not exist: this is a cache miss, not an error
-			logrus.Debugf("DiskCache::Get(%s): Not found", cacheKey)
+			logrus.Debugf("DiskCache::Get(file=%s): Not found", cacheKey)
 			return nil, nil
 		}
-		logrus.Debugf("DiskCache::Get(%s): Error checking file: %v", cacheKey, err)
+		logrus.Debugf("DiskCache::Get(file=%s): Error checking file: %v", cacheKey, err)
 		return nil, fmt.Errorf("cache file stat error for %s: %w", fullPath, err)
 	}
 
@@ -56,16 +56,17 @@ func (d *DiskCache) Get(cacheKey string) ([]byte, error) {
 	// Read cached response
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
-		logrus.Debugf("DiskCache::Get(%s): Failed to read cache file: %v", cacheKey, err)
+		logrus.Debugf("DiskCache::Get(file=%s): Failed to read cache file: %v", cacheKey, err)
 		return nil, fmt.Errorf("failed to read cache file '%s': %w", fullPath, err)
 	}
 
-	logrus.Debugf("DiskCache::Get(%s): Cache hit", cacheKey)
+	logrus.Debugf("DiskCache::Get(file=%s): Cache hit", cacheKey)
 	return data, nil
 }
 
 // Set stores a response in the cache
 func (d *DiskCache) Set(cacheKey string, data []byte) error {
+	logrus.Debugf("DiskCache::Set(file=%s)", cacheKey)
 	if cacheKey == "" {
 		return fmt.Errorf("cache path cannot be empty")
 	}
@@ -82,7 +83,7 @@ func (d *DiskCache) Set(cacheKey string, data []byte) error {
 		return fmt.Errorf("failed to write cache file: %w", err)
 	}
 
-	logrus.Debugf("Cached response to %s", fullpath)
+	logrus.Debugf("DiskCache::Set(file=%s): Ok", cacheKey)
 	return nil
 }
 
