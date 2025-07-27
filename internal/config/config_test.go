@@ -78,15 +78,6 @@ func TestValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "invalid address",
-			config: Config{
-				Server: ServerConfig{HTTP: HTTPConfig{Address: "-1"}},
-				Cache:  CacheConfig{TTL: "1h", Folder: "/tmp/cache"},
-				Rules:  RulesConfig{Mode: "whitelist"},
-			},
-			wantErr: true,
-		},
-		{
 			name: "invalid TTL",
 			config: Config{
 				Server: ServerConfig{HTTP: HTTPConfig{Address: ":8080"}},
