@@ -149,7 +149,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("rules mode must be 'whitelist' or 'blacklist', got: %s", c.Rules.Mode)
 	}
 
-	validLogLevels := []string{"debug", "info", "warn", "error"}
+	validLogLevels := []string{"trace", "debug", "info", "warn", "error"}
 	if !slices.Contains(validLogLevels, c.Log.Level) {
 		return fmt.Errorf("log level must be one of 'debug', 'info', 'warn', 'error', got: %s", c.Log.Level)
 	}
