@@ -1,4 +1,4 @@
-package cache
+package httpcache
 
 import (
 	"crypto/sha256"
@@ -9,14 +9,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/iTrooz/caching-dev-proxy/internal/cache"
 	"github.com/sirupsen/logrus"
 )
 
 type HTTPCache struct {
-	cache GenericCache
+	cache cache.GenericCache
 }
 
-func NewHTTP(cache GenericCache) *HTTPCache {
+func NewHTTP(cache cache.GenericCache) *HTTPCache {
 	return &HTTPCache{
 		cache: cache,
 	}

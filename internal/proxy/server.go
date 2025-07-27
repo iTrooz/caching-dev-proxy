@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/iTrooz/caching-dev-proxy/internal/cache"
+	"github.com/iTrooz/caching-dev-proxy/internal/cache/httpcache"
 	"github.com/iTrooz/caching-dev-proxy/internal/config"
 
 	"github.com/elazarl/goproxy"
@@ -28,7 +29,7 @@ type ProxyResponse struct {
 // Server represents the caching proxy server
 type Server struct {
 	config       *config.Config
-	cacheManager *cache.HTTPCache
+	cacheManager *httpcache.HTTPCache
 	proxy        *goproxy.ProxyHttpServer
 	rules        []Rule
 }
@@ -52,7 +53,7 @@ func New(cfg *config.Config) (*Server, error) {
 	if err := generic.Init(); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	cacheManager := cache.NewHTTP(generic)
+	cacheManager := httpcache.New(generic)
 
 	// Create goproxy instance
 	proxy := &goproxy.ProxyHttpServer{

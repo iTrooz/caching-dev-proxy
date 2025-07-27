@@ -1,4 +1,4 @@
-package cache
+package httpcache
 
 import (
 	"io"
@@ -6,11 +6,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iTrooz/caching-dev-proxy/internal/cache"
 )
 
 func TestHTTPCache(t *testing.T) {
 	tempDir := t.TempDir()
-	genericCache := NewGenericDisk(tempDir, time.Hour)
+	genericCache := cache.NewGenericDisk(tempDir, time.Hour)
 	httpCache := NewHTTP(genericCache)
 
 	// Test that NewHTTP returns a non-nil cache
@@ -21,7 +23,7 @@ func TestHTTPCache(t *testing.T) {
 
 func TestHTTPCacheGetAndSet(t *testing.T) {
 	tempDir := t.TempDir()
-	genericCache := NewGenericDisk(tempDir, time.Hour)
+	genericCache := cache.NewGenericDisk(tempDir, time.Hour)
 	httpCache := NewHTTP(genericCache)
 
 	// Initialize the underlying generic cache
@@ -72,7 +74,7 @@ func TestHTTPCacheGetAndSet(t *testing.T) {
 
 func TestHTTPCacheGetExpired(t *testing.T) {
 	tempDir := t.TempDir()
-	genericCache := NewGenericDisk(tempDir, 100*time.Millisecond) // Very short TTL
+	genericCache := cache.NewGenericDisk(tempDir, 100*time.Millisecond) // Very short TTL
 	httpCache := NewHTTP(genericCache)
 
 	// Initialize the underlying generic cache
@@ -116,7 +118,7 @@ func TestHTTPCacheGetExpired(t *testing.T) {
 
 func TestHTTPCacheGetKeyError(t *testing.T) {
 	tempDir := t.TempDir()
-	genericCache := NewGenericDisk(tempDir, time.Hour)
+	genericCache := cache.NewGenericDisk(tempDir, time.Hour)
 	httpCache := NewHTTP(genericCache)
 
 	// Create request with valid URL
