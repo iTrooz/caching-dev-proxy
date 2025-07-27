@@ -36,10 +36,16 @@ type Server struct {
 
 // ctxUserData holds per-request context for cache logic
 type ctxUserData struct {
-	start  time.Time
-	key    string
-	bypass bool
+	// start time of the request
+	start time.Time
+	// where the request comes from (e.g., HTTP explicit, HTTP transparent, etc.)
 	source string
+	// cache key for the request
+	key string
+	// whether the request should bypass cache
+	bypass bool
+	// whether the response was a cache hit
+	hit bool
 }
 
 // New creates a new proxy server
@@ -170,6 +176,7 @@ func (s *Server) setupProxyHandlers() {
 			logrus.Debugf("OnRequest(url=%s): Serving from cache", req.URL.String())
 			cachedResp.Request = req
 			cachedResp.Header.Set("X-Cache", "HIT")
+			userData.hit = true
 			return req, cachedResp
 		}
 
@@ -209,7 +216,7 @@ func (s *Server) setupProxyHandlers() {
 			}
 
 			// Add cache information header, only if not already set (to avoid overwriting cache hits)
-			if resp.Header.Get("X-Cache") == "" {
+			if !userData.hit {
 				if s.shouldBeCached(ctx.Req, resp) {
 					resp.Header.Set("X-Cache", "MISS")
 				} else {
